@@ -25,6 +25,7 @@
       <CornerRadius x:Key="CardRadius">8</CornerRadius>
       <CornerRadius x:Key="BtnRadius">6</CornerRadius>
       <CornerRadius x:Key="InputRadius">4</CornerRadius>
+      <!-- DialogRadius：spec §5.3 固定要求的令牌，供 P1 的弹窗使用；P0 没有弹窗故当前无消费者，是有意的，不是死令牌 -->
       <CornerRadius x:Key="DialogRadius">12</CornerRadius>
     </ResourceDictionary>
 
@@ -44,6 +45,7 @@
       <CornerRadius x:Key="CardRadius">8</CornerRadius>
       <CornerRadius x:Key="BtnRadius">6</CornerRadius>
       <CornerRadius x:Key="InputRadius">4</CornerRadius>
+      <!-- DialogRadius：spec §5.3 固定要求的令牌，供 P1 的弹窗使用；P0 没有弹窗故当前无消费者，是有意的，不是死令牌 -->
       <CornerRadius x:Key="DialogRadius">12</CornerRadius>
     </ResourceDictionary>
 
