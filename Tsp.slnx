@@ -1,9 +1,11 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Tsp.Contracts/Tsp.Contracts.csproj" />
+    <Project Path="src/Tsp.Desktop.ViewModels/Tsp.Desktop.ViewModels.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Tsp.Contracts.Tests/Tsp.Contracts.Tests.csproj" />
+    <Project Path="tests/Tsp.Desktop.ViewModels.Tests/Tsp.Desktop.ViewModels.Tests.csproj" />
   </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
