@@ -89,6 +89,10 @@ dotnet run --project src/Tsp.Desktop   # 本地调试运行（P0 Task 6 起可�
 
 - UTF-8、文件末尾保留换行、去除行尾空白；
 - 缩进：C# / Markdown 4 空格；csproj / props / axaml / xml / yaml 2 空格；
+- **`.editorconfig` 的出处与 `[*.axaml]` 段的来历**：文件主体自 `E:\wpf-float-agent\.editorconfig`
+  逐字复制，而其中 `[*.axaml]` 段是**随后有意追加**的——参考仓库是 WPF 项目，没有 axaml 这个概念。
+  因此那段与源文件不一致是**预期结果**，不是复制走神、也不是漂移；比对两份文件时不要据此判定复制不认真
+  （`.editorconfig` 文件内同一位置也留了这句话）；
 - 大括号独立成行（Allman：`csharp_new_line_before_open_brace = all`）；
 - 命名空间用**文件作用域**（`csharp_style_namespace_declarations = file_scoped`），
   且命名空间与文件夹路径一致（`dotnet_style_namespace_match_folder`）；
@@ -184,7 +188,8 @@ dotnet run --project src/Tsp.Desktop   # 本地调试运行（P0 Task 6 起可�
 
 ### 10.1 提交信息
 
-- **中文 Conventional Commits**：`feat(scope): …` / `fix(scope): …` / `refactor(scope): …` / `docs: …`；
+- **中文 Conventional Commits**：`feat(scope): …` / `fix(scope): …` / `refactor(scope): …` /
+  `test(scope): …` / `style(scope): …` / `chore(scope): …` / `docs: …`；
 - **涉及代码改动的提交**在描述末尾带版本尾注 `（0.1.0）`，与 `Directory.Build.props` 的 `<Version>` 一致；
 - scope 常用值：`scaffold` / `contracts` / `nav` / `ui` / `data` 等；
 - **每个功能/修复单独成提交**；文档与对应代码改动同批提交；纯文档改动用 `docs: …`，不带版本尾注。

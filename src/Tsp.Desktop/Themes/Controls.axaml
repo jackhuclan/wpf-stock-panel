@@ -71,7 +71,9 @@
        幽灵按钮：透明底、无边框、圆角 BtnRadius，悬停才升起一层 elevated 面。
        同样是盖 ContentPresenter 而不是 Button.Background——FluentTheme 的悬停底色加在模板内的
        ContentPresenter 上，只设 Button 的 Background 会被它压过去。
-       外间距不在这里：侧栏底部的两个按钮左右间距不同（贴边 8px、中间 0），留给挂类的那一行写。 -->
+       外间距不在这里：侧栏底部的两个按钮贴边留 8px、彼此之间也留 8px（由两枚按钮各自的 4px 相加而来），
+       都写在挂类的那一行上。中间那道缝不能留 0——两个按钮的悬停底色会在 `*,*` 的分界处贴在一起，
+       看着像一个控件。 -->
   <Style Selector="Button.ghost">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
