@@ -404,11 +404,9 @@ git commit -m "feat(nav): 新增导航服务与返回栈（0.1.0）"
 - Create: `src/Tsp.Desktop.ViewModels/Services/ITspApiClient.cs`
 - Create: `src/Tsp.Desktop.ViewModels/Services/FixtureDataException.cs`
 - Create: `src/Tsp.Desktop.ViewModels/Services/FixtureApiClient.cs`
-- Create: `src/Tsp.Desktop/Fixtures/index-quotes.json`
-- Create: `src/Tsp.Desktop/Fixtures/instruments.json`
-- Create: `src/Tsp.Desktop/Fixtures/watchlist.json`
-- Create: `src/Tsp.Desktop/Fixtures/daily-bars/600519.SH.json`
 - Test: `tests/Tsp.Desktop.ViewModels.Tests/FixtureApiClientTests.cs`
+
+> **生产夹具数据文件（`src/Tsp.Desktop/Fixtures/*.json`）属 Task 6，不在本任务。** 理由：`src/Tsp.Desktop/` 项目要到 Task 6 才创建，此时没有 csproj 可挂 `CopyToOutputDirectory`，提前放 JSON 只会留下一个无所属项目的悬空目录。本任务的测试**全部自带临时夹具**（`Write(...)` 写进 `Path.GetTempPath()`），不读生产夹具文件，故本任务可独立完成并验收。
 
 **Interfaces:**
 - Consumes: Task 2 的全部 DTO
@@ -514,19 +512,15 @@ Expected: 编译失败，`FixtureApiClient` / `FixtureDataException` / `ITspApiC
 
 JSON 用 `JsonSerializerDefaults.Web`，`DateOnly` 走内置转换器。
 
-- [ ] **Step 4: 写夹具数据文件**
-
-放在 `src/Tsp.Desktop/Fixtures/`，csproj 设 `CopyToOutputDirectory=PreserveNewest`。内容用**真实**的上证/深证/创业板/科创综指数值（取自 spec 截图：`3697.52` / `11534.38` / `2658.23` / `1573.83`），自选与日 K 用小样本，够驱动 P0 与后续页面骨架即可。
-
-- [ ] **Step 5: 运行测试确认通过**
+- [ ] **Step 4: 运行测试确认通过**
 
 Run: `dotnet test tests/Tsp.Desktop.ViewModels.Tests`
-Expected: 15 passed。
+Expected: 全绿。**不要断言绝对条数**——计划里曾写死过的计数会被上游任务的增测推翻（Task 4 就因强制的语义补测多了 4 条）。记录实测条数并写进报告即可。
 
-- [ ] **Step 6: 提交**
+- [ ] **Step 5: 提交**
 
 ```bash
-git add src/Tsp.Desktop.ViewModels src/Tsp.Desktop/Fixtures tests/Tsp.Desktop.ViewModels.Tests
+git add src/Tsp.Desktop.ViewModels tests/Tsp.Desktop.ViewModels.Tests
 git commit -m "feat(contracts): 冻结 ITspApiClient 并实现夹具客户端（0.1.0）"
 ```
 
@@ -538,6 +532,10 @@ git commit -m "feat(contracts): 冻结 ITspApiClient 并实现夹具客户端（
 
 **Files:**
 - Create: `src/Tsp.Desktop/Tsp.Desktop.csproj`
+- Create: `src/Tsp.Desktop/Fixtures/index-quotes.json`
+- Create: `src/Tsp.Desktop/Fixtures/instruments.json`
+- Create: `src/Tsp.Desktop/Fixtures/watchlist.json`
+- Create: `src/Tsp.Desktop/Fixtures/daily-bars/600519.SH.json`
 - Create: `src/Tsp.Desktop/Program.cs`
 - Create: `src/Tsp.Desktop/App.axaml`
 - Create: `src/Tsp.Desktop/App.axaml.cs`
@@ -629,7 +627,7 @@ Expected: 编译失败，`MainWindowViewModel` 未定义。
 - [ ] **Step 4: 运行测试确认通过**
 
 Run: `dotnet test tests/Tsp.Desktop.ViewModels.Tests`
-Expected: 19 passed。
+Expected: 全绿。记录实测条数，不要断言绝对数（理由同 Task 5）。
 
 - [ ] **Step 5: 建 Avalonia 壳工程**
 
@@ -638,6 +636,8 @@ Expected: 19 passed。
 csproj 需要：`<OutputType>WinExe</OutputType>`、`<TargetFramework>net10.0</TargetFramework>`、`<Nullable>enable</Nullable>`、`<ImplicitUsings>enable</ImplicitUsings>`、`<BuiltInComInteropSupport>true</BuiltInComInteropSupport>`、`<ApplicationManifest>app.manifest</ApplicationManifest>`（可省）、`<AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>`。引用 `Avalonia`、`Avalonia.Desktop`、`Avalonia.Themes.Fluent`、`Avalonia.Fonts.Inter`、`CommunityToolkit.Mvvm`、`Microsoft.Extensions.DependencyInjection` 与 `Tsp.Desktop.ViewModels`（**只写 Include，不写 Version**）。
 
 注意 `AvaloniaUseCompiledBindingsByDefault=true` 意味着所有 `{Binding}` 必须能编译期解析到属性——`x:DataType` 要在各处写上，否则编译报错。若这一步反复卡住，可先设 `false` 用反射绑定跑通，再在 P1 收敛。加进 `Tsp.slnx`。
+
+**同时创建本任务的 4 个生产夹具文件**（Task 5 刻意没产出它们，因为那时本项目还不存在）：csproj 里给它们设 `CopyToOutputDirectory=PreserveNewest`（或用 `<Content Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />`）。内容用**真实**指数值以对齐 spec 截图——上证 `3697.52` / 深证 `11534.38` / 创业板 `2658.23` / 科创综 `1573.83`；自选与日 K 用小样本即可。JSON 形状必须与 Task 2 的 DTO 匹配（价格与额用 `decimal`，日期用 ISO `yyyy-MM-dd`，枚举用数字线号）。
 
 - [ ] **Step 6: 写 `App.axaml` / `App.axaml.cs`、`Program.cs` 与 `Themes/Tokens.axaml`**
 
@@ -730,7 +730,7 @@ Expected: 启动即暗色。点切换按钮，**侧栏、内容区、边框颜�
 - [ ] **Step 5: 回归测试**
 
 Run: `dotnet test tests/Tsp.Desktop.ViewModels.Tests`
-Expected: 19 passed（本任务不新增测试，确认未回归）。**注意**：不要跑全解决方案的 `dotnet test`——那会连 `Tsp.Contracts.Tests` 的 6 个一起算，总数是 25 而非 19。
+Expected: 全绿（本任务不新增测试，确认未回归）。记录实测条数，不要断言绝对数。**注意**：不要跑全解决方案的 `dotnet test`——那会把 `Tsp.Contracts.Tests` 的条数一起算进来。要跑就明确指定项目路径。
 
 - [ ] **Step 6: 提交**
 
@@ -797,7 +797,7 @@ Expected: 编译失败，`IndexQuotes` / `ShowFixtureBadge` 未定义。
 - [ ] **Step 5: 运行测试确认通过**
 
 Run: `dotnet test tests/Tsp.Desktop.ViewModels.Tests`
-Expected: 21 passed。
+Expected: 全绿。记录实测条数。
 
 - [ ] **Step 6: 真实运行验证**
 
