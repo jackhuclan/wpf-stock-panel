@@ -385,7 +385,7 @@ Expected: 编译失败，`NavigationService` 未定义。
 - [ ] **Step 4: 运行测试确认通过**
 
 Run: `dotnet test tests/Tsp.Desktop.ViewModels.Tests`
-Expected: 9 passed（Task 3 的 5 个 + 本任务的 4 个）。
+Expected: 10 passed（Task 3 的 6 个 + 本任务的 4 个）。
 
 - [ ] **Step 5: 提交**
 
@@ -521,7 +521,7 @@ JSON 用 `JsonSerializerDefaults.Web`，`DateOnly` 走内置转换器。
 - [ ] **Step 5: 运行测试确认通过**
 
 Run: `dotnet test tests/Tsp.Desktop.ViewModels.Tests`
-Expected: 14 passed。
+Expected: 15 passed。
 
 - [ ] **Step 6: 提交**
 
@@ -629,7 +629,7 @@ Expected: 编译失败，`MainWindowViewModel` 未定义。
 - [ ] **Step 4: 运行测试确认通过**
 
 Run: `dotnet test tests/Tsp.Desktop.ViewModels.Tests`
-Expected: 18 passed。
+Expected: 19 passed。
 
 - [ ] **Step 5: 建 Avalonia 壳工程**
 
@@ -730,7 +730,7 @@ Expected: 启动即暗色。点切换按钮，**侧栏、内容区、边框颜�
 - [ ] **Step 5: 回归测试**
 
 Run: `dotnet test tests/Tsp.Desktop.ViewModels.Tests`
-Expected: 18 passed（本任务不新增测试，确认未回归）。**注意**：不要跑全解决方案的 `dotnet test`——那会连 `Tsp.Contracts.Tests` 的 6 个一起算，总数是 24 而非 18。
+Expected: 19 passed（本任务不新增测试，确认未回归）。**注意**：不要跑全解决方案的 `dotnet test`——那会连 `Tsp.Contracts.Tests` 的 6 个一起算，总数是 25 而非 19。
 
 - [ ] **Step 6: 提交**
 
@@ -797,7 +797,7 @@ Expected: 编译失败，`IndexQuotes` / `ShowFixtureBadge` 未定义。
 - [ ] **Step 5: 运行测试确认通过**
 
 Run: `dotnet test tests/Tsp.Desktop.ViewModels.Tests`
-Expected: 20 passed。
+Expected: 21 passed。
 
 - [ ] **Step 6: 真实运行验证**
 
