@@ -410,7 +410,7 @@ git commit -m "feat(nav): 新增导航服务与返回栈（0.1.0）"
 
 **Interfaces:**
 - Consumes: Task 2 的全部 DTO
-- Produces: `ITspApiClient { bool IsFixtureData { get; } Task<IReadOnlyList<IndexQuote>> GetIndexQuotesAsync(CancellationToken cancellationToken); Task<IReadOnlyList<Instrument>> GetInstrumentsAsync(CancellationToken cancellationToken); Task<IReadOnlyList<DailyBar>> GetDailyBarsAsync(string symbol, DateOnly from, DateOnly to, CancellationToken cancellationToken); Task<IReadOnlyList<WatchlistItem>> GetWatchlistAsync(CancellationToken cancellationToken); }`；`TspApiException(string message)`；`FixtureApiClient(string fixtureDirectory)`
+- Produces: `ITspApiClient { bool IsFixtureData { get; } Task<IReadOnlyList<IndexQuote>> GetIndexQuotesAsync(CancellationToken cancellationToken); Task<IReadOnlyList<Instrument>> GetInstrumentsAsync(CancellationToken cancellationToken); Task<IReadOnlyList<DailyBar>> GetDailyBarsAsync(string symbol, DateOnly from, DateOnly to, CancellationToken cancellationToken); Task<IReadOnlyList<WatchlistItem>> GetWatchlistAsync(CancellationToken cancellationToken); }`；`TspApiException(string message)` 与 `TspApiException(string message, Exception innerException)`（后者在包装 `JsonException` 时使用）；`FixtureApiClient(string fixtureDirectory)`
 
 - [ ] **Step 1: 写失败的夹具测试**
 
