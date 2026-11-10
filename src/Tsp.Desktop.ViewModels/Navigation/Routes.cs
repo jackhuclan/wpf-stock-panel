@@ -3,7 +3,7 @@ namespace Tsp.Desktop.ViewModels.Navigation;
 /// <summary>
 /// 页面路由注册表：全应用页面集合的唯一事实来源。
 /// <see cref="All"/> 按 <see cref="PageRoute.Order"/> 升序排列，顺序与设计文档 §5.6 的表格一致：
-/// 核心 8 页在前，扩展 11 页随后。不含设置页（设置页由主窗口壳单独承载）。
+/// 核心 8 页在前，扩展 11 页随后，恒为 19 页。设置页由主窗口壳单独承载，见 <see cref="SettingsRoute"/>。
 /// </summary>
 public static class Routes
 {
@@ -29,6 +29,9 @@ public static class Routes
     public const string Paper = "/paper";
     public const string Signals = "/signals";
     public const string Review = "/review";
+
+    // 设置页：spec §5.6 在 19 页表格之外单独命名，由侧栏底部入口承载
+    public const string Settings = "/settings";
 
     /// <summary>
     /// 全部 19 页，按 <see cref="PageRoute.Order"/> 升序。
@@ -57,7 +60,15 @@ public static class Routes
     });
 
     /// <summary>
-    /// 按键精确查找（<see cref="StringComparer.Ordinal"/>，区分大小写）。未命中返回 <c>null</c>——未知路由是正常情况
+    /// 设置页路由。**刻意不在 <see cref="All"/> 内**：<see cref="All"/> 恒为 spec §5.6 的 19 页，
+    /// 界面把它排在 19 页之后单独成一项。但它必须可导航，故一并被 <see cref="Find"/> 收录——
+    /// 否则导航服务会把它当未知路由，点"设置"落进空状态页。
+    /// </summary>
+    public static PageRoute SettingsRoute { get; } = new(Settings, "设置", PageDomain.Settings, 20);
+
+    /// <summary>
+    /// 按键精确查找（<see cref="StringComparer.Ordinal"/>，区分大小写）。查找范围是全部**已注册**的路由：
+    /// <see cref="All"/> 的 19 页加 <see cref="SettingsRoute"/>。未命中返回 <c>null</c>——未知路由是正常情况
     /// （手输错、深链失效、页面被裁掉），由界面显示空状态，不抛异常。
     /// </summary>
     public static PageRoute? Find(string key)
@@ -70,6 +81,6 @@ public static class Routes
             }
         }
 
-        return null;
+        return StringComparer.Ordinal.Equals(SettingsRoute.Key, key) ? SettingsRoute : null;
     }
 }
