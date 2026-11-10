@@ -68,14 +68,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private IReadOnlyList<IndexQuote> _indexQuotes = [];
 
     /// <summary>
-    /// 当前数据是否来自夹具。界面据此明示"你看到的不是真实行情"。
+    /// 客户端是否在提供夹具数据。界面据此明示"你看到的不是真实行情"。
+    /// 它在 <see cref="LoadAsync"/> 的取数**之前**就从 <see cref="ITspApiClient.IsFixtureData"/> 落定，
+    /// 因此与"这次取数成没成"无关——失败态下界面同样不该把夹具客户端说成真实行情。
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowFixtureBadge))]
     private bool _isFixtureData;
 
     /// <summary>
-    /// 取数失败的**可读**说明，取自 <see cref="TspApiException.Message"/>；无失败时为 <c>null</c>。
+    /// 取数失败的**可读**说明。契约内的失败（<see cref="TspApiException"/>）原样取它的
+    /// <see cref="Exception.Message"/>；契约外的意外异常兜底成"数据读取失败：…"；
+    /// 无失败时为 <c>null</c>。
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
@@ -88,10 +92,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public IReadOnlyList<IndexQuoteRow> IndexBar => IndexQuotes.Select(IndexQuoteRow.From).ToList();
 
     /// <summary>
-    /// 是否显示"夹具数据"角标。**恒等于客户端的自报身份**（<see cref="ITspApiClient.IsFixtureData"/>）：
+    /// 是否显示"夹具数据"角标。**取自客户端的自报身份**（<see cref="ITspApiClient.IsFixtureData"/>）：
     /// 角标存在的全部意义就是让用户无法把夹具数据当成真实行情，若由 View 自己判断（按数据形状、按路由猜），
     /// 这个保证就没了——那正是接口带着这个属性的理由。
     /// 它是 <see cref="IsFixtureData"/> 的别名而非第二份状态：两者不可能各自漂移。
+    /// 首屏在取数之前就把身份写进 <see cref="IsFixtureData"/>，所以窗口一露脸角标就是对的，
+    /// 不依赖本次取数是否成功。
     /// </summary>
     public bool ShowFixtureBadge => IsFixtureData;
 
@@ -128,11 +134,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>
     /// 首屏装配：落在菜单第一项，并拉一次指数快照确认数据可读。
     /// 取数失败**不外抛**——<see cref="TspApiException"/> 被就地转成 <see cref="ErrorMessage"/>，
-    /// 壳照常可用（这是界面显示可读错误而非崩溃或白屏的落点）。
+    /// 契约外的意外异常同样兜底成可读的失败态，壳照常可用
+    /// （这是界面显示可读错误而非崩溃或白屏的落点）。
+    /// 唯一的例外是取消：<see cref="OperationCanceledException"/> 按契约照常上抛。
     /// </summary>
     [RelayCommand]
     private async Task LoadAsync()
     {
+        // 角标身份在**任何取数之前**落定：它回答的是"客户端是谁"，不是"这次取到了什么"。
+        // 若放在成功路径上，首屏渲染到取数返回之间角标就是假的——那段时间界面在说谎；
+        // 取数失败时更是如此：夹具客户端仍然是夹具客户端，角标不该跟着失败一起消失。
+        IsFixtureData = _apiClient.IsFixtureData;
+
         // 先落页再取数：数据失败不该让壳停在空状态页，那是"路由没找到"的语义，两回事。
         _navigation.Navigate(Routes.All[0].Key);
 
@@ -140,14 +153,30 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             // 快照落在侧栏指数条上；这次调用同时是"夹具可读"的确认。
             IndexQuotes = await _apiClient.GetIndexQuotesAsync(CancellationToken.None);
-            IsFixtureData = _apiClient.IsFixtureData;
 
             // 重跑成功要抹掉上一次的错误，否则界面会留着一条已经过期的失败提示。
             ErrorMessage = null;
         }
+        catch (OperationCanceledException)
+        {
+            // 取消按 ITspApiClient 的约定照常上抛、不包装成失败：它表达的是"用户主动中止"，
+            // 不是"读不到数据"，混进失败态会让界面把一次正常中止说成故障。
+            throw;
+        }
         catch (TspApiException ex)
         {
             ErrorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            // 兜底不是多余的：接口约定"失败一律抛 TspApiException"，但**约定不等于护栏**。
+            // File.ReadAllTextAsync 会因文件被占用（杀毒 / 同步客户端）抛 IOException、
+            // 因 ACL 拒绝读抛 UnauthorizedAccessException（File.Exists 只测存在、不测可读），
+            // 目录在 Exists 与读取之间消失则抛 DirectoryNotFoundException；
+            // P2 的 HTTP 实现更会带来连接被拒、DNS 失败、非 2xx、响应体损坏与 TaskCanceledException。
+            // 这些一旦逃出去，AsyncRelayCommand 会把异常抛回调度器，而 OutputType 是 WinExe——
+            // 没有控制台可看，用户看到的就是进程凭空消失。数据层失败绝不允许以这种方式到达用户。
+            ErrorMessage = $"数据读取失败：{ex.Message}";
         }
     }
 

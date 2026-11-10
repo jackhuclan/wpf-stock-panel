@@ -30,7 +30,8 @@
 
       <!--
         夹具角标（spec §5.2 的硬要求）：固定在侧栏顶部、紧挨菜单之上，位置显眼到用户不可能忽略"数据是假的"。
-        可见性只由 ShowFixtureBadge 决定，而它恒等于客户端的自报身份 ITspApiClient.IsFixtureData——
+        可见性只由 ShowFixtureBadge 决定，而它取自客户端的自报身份 ITspApiClient.IsFixtureData
+        （ViewModel 在首屏取数**之前**就把它写进 IsFixtureData，所以取数失败也照样显示）——
         由 View 自己猜（按数据形状、按路由）就达不到"无法把夹具当成真行情"这个保证。
         外观是具名样式 badge 的警示变体（Classes="badge warning"）：形状、底色、描边、文字色
         全部在 Themes/Controls.axaml 里定，这里一个颜色都不写——文字色与描边色都由那个修饰类给出
@@ -162,8 +163,10 @@
     <pages:PlaceholderPage Grid.Column="2" />
 
     <!--
-      取数失败态（Task 8）：客户端抛 TspApiException 时 ErrorMessage 非空，内容区显示可读错误，
+      取数失败态（Task 8）：客户端抛异常时 ErrorMessage 非空，内容区显示可读错误，
       既不是白屏、也不是崩溃（Review Focus 第 2 项 / AGENTS §8 的"异常不得穿透到 UI"落点）。
+      触发它的不只是契约内的 TspApiException——文件被占用、ACL 拒绝读、P2 的连接被拒与 DNS 失败
+      都会走到同一处兜底，因此这块界面是"任何取数失败"的落点，不只是一类异常。
 
       它与别处的状态互不相干，三者各按各的判据显示，谁都不由谁推导：
         · 本块      HasError      —— 客户端这次没读到数据

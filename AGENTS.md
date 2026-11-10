@@ -169,6 +169,11 @@ dotnet run --project src/Tsp.Desktop   # 本地调试运行（P0 Task 6 起可�
 - 启动时 `Directory.SetCurrentDirectory(AppContext.BaseDirectory)`，运行期资源路径以 exe 目录为准；
 - **异常不得穿透到 UI**：可预期的数据层失败（夹具缺失、JSON 损坏）要捕获后写入 ViewModel 的
   `ErrorMessage` 状态，界面显示可读错误而不是崩溃或白屏；
+- **捕获要分层，不能只 `catch (TspApiException)`**，三层各有各的理由：
+  `OperationCanceledException` 照常上抛（契约要求——取消是"用户主动中止"，不是失败）；
+  `TspApiException` 用其自身面向用户的消息；其余异常兜底成一条可读消息。
+  `OutputType=WinExe` 没有控制台，漏出去的异常不会打印任何东西，只表现为**进程凭空消失**，
+  因此"契约说实现只抛那一种异常"不构成省掉兜底的理由（见 `MainWindowViewModel.LoadAsync`）；
 - 导航到未注册的路由键应停在明确的空状态（`CurrentRoute == null`），**不抛异常**。
 
 ---

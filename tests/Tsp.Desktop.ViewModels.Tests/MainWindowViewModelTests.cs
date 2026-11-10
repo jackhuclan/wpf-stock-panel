@@ -53,6 +53,36 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task Load_surfaces_a_failure_outside_the_contract_instead_of_letting_it_escape()
+    {
+        // 契约说实现失败时只抛 TspApiException，但**契约不是护栏**：文件被占用（杀毒 / 同步客户端）
+        // 抛 IOException、ACL 拒绝读抛 UnauthorizedAccessException、目录在检查与读取之间消失抛
+        // DirectoryNotFoundException，P2 的 HTTP 实现还会带来连接被拒 / DNS 失败 / 非 2xx。
+        // 这些若逃出 LoadAsync，AsyncRelayCommand 会把异常抛回调度器，而 OutputType 是 WinExe——
+        // 没有控制台可看，用户看到的就是进程凭空消失。这条钉住"任何失败都落成可读的失败态"。
+        var sut = new MainWindowViewModel(new NavigationService(), new FakeApiClient(new IOException("/locked: 文件被占用")));
+
+        var escaped = await Record.ExceptionAsync(() => sut.LoadCommand.ExecuteAsync(null));
+
+        Assert.Null(escaped);
+        Assert.NotNull(sut.ErrorMessage);
+        Assert.Contains("文件被占用", sut.ErrorMessage!);
+    }
+
+    [Fact]
+    public async Task Load_rethrows_cancellation_instead_of_reporting_it_as_a_failure()
+    {
+        // 契约把取消**排除在失败之外**（ITspApiClient 的 remarks）：它表达"用户主动中止"，
+        // 不是"读不到数据"。兜底的 catch (Exception) 若把这条上抛吞掉，取消会被改写成一条
+        // 失败提示——界面把一次正常中止说成故障，而且取消再也不会被上层看见。
+        var sut = new MainWindowViewModel(new NavigationService(), new FakeApiClient(new OperationCanceledException()));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => sut.LoadCommand.ExecuteAsync(null));
+
+        Assert.Null(sut.ErrorMessage);
+    }
+
+    [Fact]
     public void NavigateCommand_updates_current_route()
     {
         var sut = new MainWindowViewModel(new NavigationService(), new FakeApiClient());
@@ -223,13 +253,15 @@ public sealed class MainWindowViewModelTests
     }
 
     /// <summary>
-    /// 测试替身：按 <see cref="Failure"/> 决定"取数成功"还是"抛 <see cref="TspApiException"/>"。
+    /// 测试替身：按 <see cref="Failure"/> 决定"取数成功"还是"抛出它"。
     /// 它是可写属性而不是只读入参——Task 8 要验证"失败之后的下一次成功必须抹掉过期错误"，
     /// 同一次装配就得既能失败又能成功。
+    /// 失败类型是 <see cref="Exception"/> 而不是 <see cref="TspApiException"/>：
+    /// 契约外的意外异常（<see cref="IOException"/> 等）也必须有落点，替身得造得出来。
     /// </summary>
-    private sealed class FakeApiClient(TspApiException? failure = null) : ITspApiClient
+    private sealed class FakeApiClient(Exception? failure = null) : ITspApiClient
     {
-        public TspApiException? Failure { get; set; } = failure;
+        public Exception? Failure { get; set; } = failure;
 
         public bool IsFixtureData { get; init; } = true;
         public IReadOnlyList<IndexQuote> IndexQuotes { get; init; } = [];

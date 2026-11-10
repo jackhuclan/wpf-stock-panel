@@ -624,7 +624,9 @@ Expected: 编译失败，`MainWindowViewModel` 未定义。
 
 - [ ] **Step 3: 实现 `MainWindowViewModel`**
 
-用 `[ObservableProperty]` / `[RelayCommand]`。`LoadCommand` 调 `ITspApiClient` 拉一次指数快照，成功则 `IsFixtureData = client.IsFixtureData`，任何 `TspApiException` 都**捕获后写入 `ErrorMessage`**（绝不外抛——Review Focus 第 2 项的落点）。`NavigateCommand` 委托给 `INavigationService.Navigate`，并订阅 `CurrentChanged` 同步 `CurrentRoute`。
+用 `[ObservableProperty]` / `[RelayCommand]`。`LoadCommand` 调 `ITspApiClient` 拉一次指数快照；`IsFixtureData = client.IsFixtureData` 写在**取数之前**（角标身份回答的是"客户端是谁"，与本次取数成没成无关）。失败一律**捕获后写入 `ErrorMessage`**，绝不外抛（Review Focus 第 2 项的落点），且要分三层：`OperationCanceledException` 照常上抛（契约要求），`TspApiException` 用其自身消息，**其余异常兜底**——只 `catch (TspApiException)` 是不够的：文件被占用、ACL 拒绝读、P2 的连接被拒都会漏出去，而 `OutputType=WinExe` 下没有控制台，用户只会看到进程消失。`NavigateCommand` 委托给 `INavigationService.Navigate`，并订阅 `CurrentChanged` 同步 `CurrentRoute`。
+
+> **P0 交付后修正（复审 Critical C1）：** 本节原文只要求捕获 `TspApiException`，那是个**计划缺陷**——它被变异复现：把夹具的缺失目录抛成 `IOException` 并藏掉 `Fixtures/`，真实 exe 以 `Unhandled exception` 终止且无任何可见提示。上面三段式捕获与 `tests/Tsp.Desktop.ViewModels.Tests/MainWindowViewModelTests.cs` 里那条"契约外异常也必须落成可读失败态"的测试就是修正的落点。
 
 - [ ] **Step 4: 运行测试确认通过**
 
