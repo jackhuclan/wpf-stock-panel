@@ -1,0 +1,34 @@
+<Project>
+
+  <!--
+    全解决方案共享的工程元数据（Directory.Build.props 会被目录树下所有 .csproj 自动导入）。
+    发布 / 升级版本时只改这一处：Version 会同时作用到程序集版本与 NuGet 包版本。
+  -->
+  <PropertyGroup>
+
+    <!-- 版本：语义化版本，同时作为 AssemblyVersion / FileVersion / NuGet 包版本 -->
+    <Version>0.1.0</Version>
+
+    <!-- 产品与描述 -->
+    <Product>Tsp</Product>
+    <Description>
+      Tsp：A 股量化研究桌面工作台。Avalonia 客户端 + ASP.NET Core Web API 服务端，
+      覆盖行情落盘、指标流水线、策略扫描、回测、监控与告警的完整链路。
+      本阶段（P0）交付可导航的桌面壳、冻结的数据契约与夹具数据驱动的界面骨架。
+    </Description>
+
+    <!-- 项目地址 -->
+    <PackageProjectUrl>https://github.com/jackhuclan/wpf-stock-panel</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/jackhuclan/wpf-stock-panel</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+
+    <!-- 打包与编译 -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <Deterministic>true</Deterministic>
+
+    <!-- 编译信息注入程序集（FileVersion / InformationalVersion 显示于文件属性） -->
+    <IncludeSourceRevisionInInformationalVersion>true</IncludeSourceRevisionInInformationalVersion>
+
+  </PropertyGroup>
+
+</Project>

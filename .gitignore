@@ -1,0 +1,35 @@
+# 构建产物
+bin/
+obj/
+release/
+artifacts/
+*.binlog
+msbuild.ProjectImports.zip
+
+# IDE / 编辑器
+.vs/
+.idea/
+*.user
+*.suo
+*.userprefs
+*.aps
+
+# 本地数据（Parquet / DuckDB 等运行期落盘，绝不入库）
+data/
+
+# 本地配置（含 API Key / Token，绝不入库；仓库只提供 *.example.json 模板）
+config.json
+appsettings.Local.json
+appsettings.*.Local.json
+.env
+.env.*
+secrets.json
+
+# 日志与临时文件
+*.log
+*.pdb
+*.pidb
+*.tlog
+*.svclog
+mono_crash.*.json
+mono_crash.*.blob
