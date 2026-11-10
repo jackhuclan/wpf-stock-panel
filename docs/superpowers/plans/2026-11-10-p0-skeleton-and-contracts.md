@@ -205,7 +205,7 @@ Expected: 编译失败，提示 `DailyBar` / `Instrument` / `AssetType` 未定�
 - [ ] **Step 4: 运行测试确认通过**
 
 Run: `dotnet test tests/Tsp.Contracts.Tests`
-Expected: 4 passed（含 Task 1 的基线测试）。
+Expected: **6 passed**（Task 1 基线 1 个 + 本任务 5 个：`DailyBar_round_trips_with_decimal_precision` 1 个、`Instrument_missing_fields_takes_defaults` 1 个、`AssetType_wire_numbers_are_pinned` 的 3 个 InlineData 计 3 个）。
 
 - [ ] **Step 5: 提交**
 
@@ -727,8 +727,8 @@ Expected: 启动即暗色。点切换按钮，**侧栏、内容区、边框颜�
 
 - [ ] **Step 5: 回归测试**
 
-Run: `dotnet test`
-Expected: 19 passed（本任务不新增测试，确认未回归）。
+Run: `dotnet test tests/Tsp.Desktop.ViewModels.Tests`
+Expected: 19 passed（本任务不新增测试，确认未回归）。**注意**：不要跑全解决方案的 `dotnet test`——那会连 `Tsp.Contracts.Tests` 的 6 个一起算，总数是 25 而非 19。
 
 - [ ] **Step 6: 提交**
 
