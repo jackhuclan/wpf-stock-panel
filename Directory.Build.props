@@ -9,13 +9,12 @@
     <!-- 版本：语义化版本，同时作为 AssemblyVersion / FileVersion / NuGet 包版本 -->
     <Version>0.1.0</Version>
 
-    <!-- 产品与描述 -->
+    <!-- 产品与描述。
+         描述必须是**单行**：这个值会原样流入 AssemblyDescriptionAttribute 与
+         FileVersionInfo.Comments（资源管理器 → 属性 → 详细信息 → 备注 里对用户可见），
+         将来打包还会成为 NuGet 包描述。写成多行元素会把前导换行与续行缩进一起带进去。 -->
     <Product>Tsp</Product>
-    <Description>
-      Tsp：A 股量化研究桌面工作台。Avalonia 客户端 + ASP.NET Core Web API 服务端，
-      覆盖行情落盘、指标流水线、策略扫描、回测、监控与告警的完整链路。
-      本阶段（P0）交付可导航的桌面壳、冻结的数据契约与夹具数据驱动的界面骨架。
-    </Description>
+    <Description>Tsp：A 股量化研究桌面工作台。Avalonia 客户端 + ASP.NET Core Web API 服务端，覆盖行情落盘、指标流水线、策略扫描、回测、监控与告警的完整链路。本阶段（P0）交付可导航的桌面壳、冻结的数据契约与夹具数据驱动的界面骨架。</Description>
 
     <!-- 项目地址 -->
     <PackageProjectUrl>https://github.com/jackhuclan/wpf-stock-panel</PackageProjectUrl>
