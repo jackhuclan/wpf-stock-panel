@@ -402,7 +402,7 @@ git commit -m "feat(nav): 新增导航服务与返回栈（0.1.0）"
 
 **Files:**
 - Create: `src/Tsp.Desktop.ViewModels/Services/ITspApiClient.cs`
-- Create: `src/Tsp.Desktop.ViewModels/Services/FixtureDataException.cs`
+- Create: `src/Tsp.Desktop.ViewModels/Services/TspApiException.cs`
 - Create: `src/Tsp.Desktop.ViewModels/Services/FixtureApiClient.cs`
 - Test: `tests/Tsp.Desktop.ViewModels.Tests/FixtureApiClientTests.cs`
 
@@ -410,7 +410,7 @@ git commit -m "feat(nav): 新增导航服务与返回栈（0.1.0）"
 
 **Interfaces:**
 - Consumes: Task 2 的全部 DTO
-- Produces: `ITspApiClient { bool IsFixtureData { get; } Task<IReadOnlyList<IndexQuote>> GetIndexQuotesAsync(CancellationToken ct); Task<IReadOnlyList<Instrument>> GetInstrumentsAsync(CancellationToken ct); Task<IReadOnlyList<DailyBar>> GetDailyBarsAsync(string symbol, DateOnly from, DateOnly to, CancellationToken ct); Task<IReadOnlyList<WatchlistItem>> GetWatchlistAsync(CancellationToken ct); }`；`FixtureDataException(string message)`；`FixtureApiClient(string fixtureDirectory)`
+- Produces: `ITspApiClient { bool IsFixtureData { get; } Task<IReadOnlyList<IndexQuote>> GetIndexQuotesAsync(CancellationToken cancellationToken); Task<IReadOnlyList<Instrument>> GetInstrumentsAsync(CancellationToken cancellationToken); Task<IReadOnlyList<DailyBar>> GetDailyBarsAsync(string symbol, DateOnly from, DateOnly to, CancellationToken cancellationToken); Task<IReadOnlyList<WatchlistItem>> GetWatchlistAsync(CancellationToken cancellationToken); }`；`TspApiException(string message)`；`FixtureApiClient(string fixtureDirectory)`
 
 - [ ] **Step 1: 写失败的夹具测试**
 
@@ -448,7 +448,7 @@ public sealed class FixtureApiClientTests : IDisposable
     {
         var sut = new FixtureApiClient(Path.Combine(_dir, "not-here"));
 
-        var ex = await Assert.ThrowsAsync<FixtureDataException>(() => sut.GetIndexQuotesAsync(CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<TspApiException>(() => sut.GetIndexQuotesAsync(CancellationToken.None));
 
         Assert.Contains("not-here", ex.Message);
     }
@@ -459,7 +459,7 @@ public sealed class FixtureApiClientTests : IDisposable
         Write("index-quotes.json", "{ this is not json");
         var sut = new FixtureApiClient(_dir);
 
-        var ex = await Assert.ThrowsAsync<FixtureDataException>(() => sut.GetIndexQuotesAsync(CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<TspApiException>(() => sut.GetIndexQuotesAsync(CancellationToken.None));
 
         Assert.Contains("index-quotes.json", ex.Message);
     }
@@ -497,18 +497,20 @@ public sealed class FixtureApiClientTests : IDisposable
 - [ ] **Step 2: 运行测试确认失败**
 
 Run: `dotnet test tests/Tsp.Desktop.ViewModels.Tests`
-Expected: 编译失败，`FixtureApiClient` / `FixtureDataException` / `ITspApiClient` 未定义。
+Expected: 编译失败，`FixtureApiClient` / `TspApiException` / `ITspApiClient` 未定义。
 
 - [ ] **Step 3: 实现接口与客户端**
 
 `FixtureApiClient` 只在 **ViewModels 项目**（读文件用 BCL，不需要 Avalonia），夹具目录由构造函数注入——这样测试可以用临时目录，而生产路径由 `Tsp.Desktop` 传入。行为约定：
 
-- 目录不存在 → 抛 `FixtureDataException`，消息含**绝对路径**；
-- 文件缺失 → 抛 `FixtureDataException`，消息含**文件名**；
-- JSON 语法错误 → 捕获 `JsonException` 后抛 `FixtureDataException`，消息含**文件名**与原始异常消息；
+- 目录不存在 → 抛 `TspApiException`，消息含**绝对路径**；
+- 文件缺失 → 抛 `TspApiException`，消息含**文件名**；
+- JSON 语法错误 → 捕获 `JsonException` 后抛 `TspApiException`，消息含**文件名**与原始异常消息；
 - 字段缺失 → 由 Task 2 的 DTO 默认值兜住，正常映射；
-- 日期区间过滤在客户端内做，边界**闭区间**；
+- 日期区间过滤在客户端内做，边界**闭区间**，且**结果按日期升序返回**——接口文档承诺升序，实现就必须兑现它；否则 Task 6 写一个降序夹具，界面就会拿到倒序 K 线而测试全绿；
 - `IsFixtureData` 恒为 `true`。
+
+**`TspApiException` 属于契约面，不是夹具专属物。** 它声明在 `ITspApiClient` 旁，且接口文档必须写明"实现以抛 `TspApiException` 表示失败，其 `Message` 面向用户可读"。理由：这样 P1 的 ViewModel 只需 catch 这一个类型，P2 换成 HTTP 实现时无需改动——这正是契约冻结的意义。命名刻意**不带 `Fixture` 前缀**就是为了这一点。
 
 JSON 用 `JsonSerializerDefaults.Web`，`DateOnly` 走内置转换器。
 
@@ -578,7 +580,7 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task Load_surfaces_client_failure_as_readable_error_state()
     {
-        var sut = new MainWindowViewModel(new NavigationService(), new FakeApiClient(new FixtureDataException("/missing: 夹具数据缺失")));
+        var sut = new MainWindowViewModel(new NavigationService(), new FakeApiClient(new TspApiException("/missing: 夹具数据缺失")));
 
         await sut.LoadCommand.ExecuteAsync(null);
 
@@ -606,10 +608,10 @@ private sealed class FakeApiClient(Exception? failure = null) : ITspApiClient
     public bool IsFixtureData { get; init; } = true;
     public IReadOnlyList<IndexQuote> IndexQuotes { get; init; } = [];
 
-    public Task<IReadOnlyList<IndexQuote>> GetIndexQuotesAsync(CancellationToken ct) => Respond(IndexQuotes);
-    public Task<IReadOnlyList<Instrument>> GetInstrumentsAsync(CancellationToken ct) => Respond<IReadOnlyList<Instrument>>([]);
-    public Task<IReadOnlyList<DailyBar>> GetDailyBarsAsync(string symbol, DateOnly from, DateOnly to, CancellationToken ct) => Respond<IReadOnlyList<DailyBar>>([]);
-    public Task<IReadOnlyList<WatchlistItem>> GetWatchlistAsync(CancellationToken ct) => Respond<IReadOnlyList<WatchlistItem>>([]);
+    public Task<IReadOnlyList<IndexQuote>> GetIndexQuotesAsync(CancellationToken cancellationToken) => Respond(IndexQuotes);
+    public Task<IReadOnlyList<Instrument>> GetInstrumentsAsync(CancellationToken cancellationToken) => Respond<IReadOnlyList<Instrument>>([]);
+    public Task<IReadOnlyList<DailyBar>> GetDailyBarsAsync(string symbol, DateOnly from, DateOnly to, CancellationToken cancellationToken) => Respond<IReadOnlyList<DailyBar>>([]);
+    public Task<IReadOnlyList<WatchlistItem>> GetWatchlistAsync(CancellationToken cancellationToken) => Respond<IReadOnlyList<WatchlistItem>>([]);
 
     private Task<T> Respond<T>(T value) => failure is null ? Task.FromResult(value) : Task.FromException<T>(failure);
 }
@@ -622,7 +624,7 @@ Expected: 编译失败，`MainWindowViewModel` 未定义。
 
 - [ ] **Step 3: 实现 `MainWindowViewModel`**
 
-用 `[ObservableProperty]` / `[RelayCommand]`。`LoadCommand` 调 `ITspApiClient` 拉一次指数快照，成功则 `IsFixtureData = client.IsFixtureData`，任何 `FixtureDataException` 都**捕获后写入 `ErrorMessage`**（绝不外抛——Review Focus 第 2 项的落点）。`NavigateCommand` 委托给 `INavigationService.Navigate`，并订阅 `CurrentChanged` 同步 `CurrentRoute`。
+用 `[ObservableProperty]` / `[RelayCommand]`。`LoadCommand` 调 `ITspApiClient` 拉一次指数快照，成功则 `IsFixtureData = client.IsFixtureData`，任何 `TspApiException` 都**捕获后写入 `ErrorMessage`**（绝不外抛——Review Focus 第 2 项的落点）。`NavigateCommand` 委托给 `INavigationService.Navigate`，并订阅 `CurrentChanged` 同步 `CurrentRoute`。
 
 - [ ] **Step 4: 运行测试确认通过**
 
