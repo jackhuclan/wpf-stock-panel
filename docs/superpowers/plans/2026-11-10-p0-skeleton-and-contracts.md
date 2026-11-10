@@ -232,7 +232,7 @@ git commit -m "feat(contracts): 新增首批行情与标的 DTO（0.1.0）"
 
 - [ ] **Step 1: 建 `Tsp.Desktop.ViewModels` 项目**
 
-`dotnet new classlib`（**不用** Avalonia 模板——本项目要可脱离 UI 单测）。csproj 引用 `Tsp.Contracts` 与 `CommunityToolkit.Mvvm`。加进 `Tsp.slnx`。
+`dotnet new classlib`（**不用** Avalonia 模板——本项目要可脱离 UI 单测）。csproj 引用 `Tsp.Contracts`。**本任务不引用 `CommunityToolkit.Mvvm`**：本任务只定义路由数据，第一个真正用到 `[ObservableProperty]` 的是 Task 6 的 `MainWindowViewModel`，届时再加——避免留下未被任何代码使用的包引用。加进 `Tsp.slnx`。
 
 - [ ] **Step 2: 建测试项目**
 
@@ -640,6 +640,8 @@ csproj 需要：`<OutputType>WinExe</OutputType>`、`<TargetFramework>net10.0</T
 注意 `AvaloniaUseCompiledBindingsByDefault=true` 意味着所有 `{Binding}` 必须能编译期解析到属性——`x:DataType` 要在各处写上，否则编译报错。若这一步反复卡住，可先设 `false` 用反射绑定跑通，再在 P1 收敛。加进 `Tsp.slnx`。
 
 - [ ] **Step 6: 写 `App.axaml` / `App.axaml.cs`、`Program.cs` 与 `Themes/Tokens.axaml`**
+
+**本步骤同时给 `Tsp.Desktop.ViewModels` 补上 `CommunityToolkit.Mvvm` 引用**——Task 3 刻意没加（当时无代码使用它），而本任务的 `MainWindowViewModel` 是第一个用到 `[ObservableProperty]` / `[RelayCommand]` 的地方，所以在这里补，保持"引用只在被使用时出现"。
 
 `App.axaml.cs` 只做 DI 装配与主窗口创建，**禁止写业务逻辑**。注册：`INavigationService` → Singleton，`ITspApiClient` → Singleton（夹具目录取 `AppContext.BaseDirectory/Fixtures`），`MainWindowViewModel` → Singleton，`MainWindow` → Singleton。`Program.cs` 用 `BuildAvaloniaApp().StartWithClassicDesktopLifetime(args)`；启动时 `Directory.SetCurrentDirectory(AppContext.BaseDirectory)`（对齐 `wpf-float-agent` 的运行时锚定习惯）。
 
