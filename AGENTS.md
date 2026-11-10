@@ -192,7 +192,9 @@ dotnet run --project src/Tsp.Desktop   # 本地调试运行（P0 Task 6 起可�
   `test(scope): …` / `style(scope): …` / `chore(scope): …` / `docs: …`；
 - **涉及代码改动的提交**在描述末尾带版本尾注 `（0.1.0）`，与 `Directory.Build.props` 的 `<Version>` 一致；
 - scope 常用值：`scaffold` / `contracts` / `nav` / `ui` / `data` 等；
-- **每个功能/修复单独成提交**；文档与对应代码改动同批提交；纯文档改动用 `docs: …`，不带版本尾注。
+- **每个功能/修复单独成提交**；文档与对应代码改动同批提交；
+  纯文档改动用 `docs: …`，**版本尾注可带可不带**——带上便于与代码提交对齐版本，不带也让 `docs: …` 一眼可辨；
+  本仓库两种都有过（早期 `docs:` 提交不带，本轮 P0 交付几个 `docs:` 带了），**不强制其一**。
 
 ### 10.2 分支与推送
 

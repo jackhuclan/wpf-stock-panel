@@ -1,9 +1,9 @@
 # Tsp — A 股量化研究桌面工作台
 
-C# / Avalonia 桌面客户端，目标是复刻 `D:\repo\front\tick-stock-panel`（TSP，MIT，Python + React）
-这套 A 股量化研究系统。本仓库是**复刻实现**，不是参考项目的一部分，也不与其共享代码。
+C# / Avalonia 桌面客户端，目标是复刻 [shy3130/tick-stock-panel](https://github.com/shy3130/tick-stock-panel)
+（TSP，MIT 许可，Python + React）这套 A 股量化研究系统。本仓库是**复刻实现**，不是参考项目的一部分，也不与其共享代码。
 
-- 复刻对象：`D:\repo\front\tick-stock-panel`（TSP，MIT，Python + React；后端 FastAPI + Polars + DuckDB，前端 React）
+- 复刻对象：[shy3130/tick-stock-panel](https://github.com/shy3130/tick-stock-panel)（TSP，MIT 许可；后端 Python + FastAPI + Polars + DuckDB，前端 React；本机上另有一份克隆在 `D:\repo\front\tick-stock-panel`）
 - 设计文档（唯一权威）：[`docs/superpowers/specs/2026-11-10-tsp-csharp-desktop-design.md`](docs/superpowers/specs/2026-11-10-tsp-csharp-desktop-design.md)
 - 当前版本：`0.1.0`（`Directory.Build.props` 的 `<Version>`，唯一版本源）
 - 目标运行环境：.NET 10 / 桌面端为 Avalonia（**不使用 WPF**）
@@ -22,7 +22,7 @@ C# / Avalonia 桌面客户端，目标是复刻 `D:\repo\front\tick-stock-panel`
 | 构建基线 | `dotnet build Tsp.slnx` → 0 警告 0 错误；CPM 集中包管理 |
 | 冻结的数据契约 | `src/Tsp.Contracts`：纯 DTO（`Instruments` / `Market` / `Watchlist`），不引用任何包 |
 | API 契约与夹具实现 | `ITspApiClient` + `FixtureApiClient`（读本地 JSON）；`HttpApiClient` 属 P2 |
-| 可导航的壳 | 侧栏 19 页 + 底部「设置」入口；未注册的路由键停在**空状态**，不崩、不白屏 |
+| 可导航的壳 | 侧栏 19 页 + 底部「设置」入口；未注册的路由键停在**空状态**，不崩、不白屏（界面目前没有可达该状态的入口，这是路由表自身的保证，由单元测试覆盖） |
 | 页面内容 | **只有占位页**：显示页名、路由键与核心/扩展徽标。P1 才做真实页面 |
 | 主题 | 暗色为默认，亮色可切；颜色全部走 `Themes/Tokens.axaml` 的令牌，运行中切换实时生效 |
 | 夹具角标 | 侧栏顶部常驻「夹具数据 · 非真实行情」，可见性恒等于客户端的自报身份 |
@@ -34,7 +34,7 @@ C# / Avalonia 桌面客户端，目标是复刻 `D:\repo\front\tick-stock-panel`
 没有服务端（`Tsp.Server` / `Tsp.Server.Core` 属 P2，尚未创建），没有真实数据源，
 没有指标计算、策略引擎、回测、监控告警、Open API 与 AI 助手。
 19 个页面**只有导航与占位**，没有图表、没有交互、没有筛选与弹窗。
-P0 交付的是"能启动、能导航、契约已冻结、界面由夹具驱动"的骨架。
+P0 交付的是「能启动、能导航、契约已冻结、界面由夹具驱动」的骨架。
 
 ---
 
@@ -42,7 +42,7 @@ P0 交付的是"能启动、能导航、契约已冻结、界面由夹具驱动"
 
 所有数据都来自随源码提交的 JSON 夹具：`src/Tsp.Desktop/Fixtures/`
 （`index-quotes.json` / `instruments.json` / `watchlist.json` / `daily-bars/600519.SH.json`）。
-它们是**离线样例**，不是行情快照，也**不是实时数据**。
+它们是**离线样例**（手写的示例数字），不是从任何行情源抓来的，也**不是实时数据**。
 
 界面为此在侧栏顶部常驻「夹具数据 · 非真实行情」角标：角标是否显示由
 `ITspApiClient.IsFixtureData` 决定（`FixtureApiClient` 恒为 `true`），不由视图按数据形状猜——
