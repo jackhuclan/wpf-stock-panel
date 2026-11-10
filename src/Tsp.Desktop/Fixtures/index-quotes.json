@@ -1,0 +1,6 @@
+[
+  { "symbol": "000001.SH", "name": "上证指数", "close": 3697.52, "changePct": 0.19 },
+  { "symbol": "399001.SZ", "name": "深证成指", "close": 11534.38, "changePct": 0.42 },
+  { "symbol": "399006.SZ", "name": "创业板指", "close": 2658.23, "changePct": -0.31 },
+  { "symbol": "000680.SH", "name": "科创综指", "close": 1573.83, "changePct": 0.58 }
+]

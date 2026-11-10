@@ -1,0 +1,73 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Tsp.Desktop.ViewModels"
+             x:Class="Tsp.Desktop.Views.Pages.PlaceholderPage"
+             x:DataType="vm:MainWindowViewModel"
+             Background="{DynamicResource BaseBrush}">
+
+  <!--
+    P0 的占位页：显示当前页的中文页名、路由键与域徽标。
+    未命中路由（CurrentRoute 为 null）时必须显示明确的空状态，既不是空白面板也不是崩溃。
+    本页刻意直接绑主窗口 ViewModel：P0 只有"当前是哪一页"这一件事要说，P1 有真实页面后它即被替换。
+  -->
+  <Panel>
+
+    <!-- 命中路由 -->
+    <Border IsVisible="{Binding HasRoute}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            MinWidth="360"
+            MaxWidth="560"
+            Padding="24"
+            Background="{DynamicResource SurfaceBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1"
+            CornerRadius="{DynamicResource CardRadius}">
+      <StackPanel Spacing="10">
+        <TextBlock Text="{Binding CurrentRoute.Title}"
+                   FontSize="22"
+                   FontWeight="SemiBold"
+                   TextWrapping="NoWrap"
+                   TextTrimming="CharacterEllipsis"
+                   Foreground="{DynamicResource FgPrimaryBrush}" />
+        <Border HorizontalAlignment="Left"
+                Padding="8,2"
+                Background="{DynamicResource ElevatedBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="{DynamicResource BtnRadius}">
+          <TextBlock Text="{Binding DomainBadge}"
+                     FontSize="11"
+                     Foreground="{DynamicResource AccentBrush}" />
+        </Border>
+        <TextBlock Text="{Binding CurrentRoute.Key}"
+                   FontSize="12"
+                   FontFamily="{DynamicResource MonoFontFamily}"
+                   Foreground="{DynamicResource FgMutedBrush}" />
+        <TextBlock Text="页面内容于 P1 实现；P0 交付的是可导航的壳与冻结的契约。"
+                   FontSize="12"
+                   TextWrapping="Wrap"
+                   Foreground="{DynamicResource FgMutedBrush}" />
+      </StackPanel>
+    </Border>
+
+    <!-- 空状态：路由键未注册（拼错、深链失效、页面被裁掉） -->
+    <StackPanel IsVisible="{Binding IsRouteMissing}"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="8">
+      <TextBlock Text="未找到该页面"
+                 HorizontalAlignment="Center"
+                 FontSize="18"
+                 Foreground="{DynamicResource FgPrimaryBrush}" />
+      <TextBlock Text="该路由未在路由注册表中注册。请从左侧菜单选择页面。"
+                 MaxWidth="360"
+                 FontSize="12"
+                 TextAlignment="Center"
+                 TextWrapping="Wrap"
+                 Foreground="{DynamicResource FgMutedBrush}" />
+    </StackPanel>
+
+  </Panel>
+
+</UserControl>

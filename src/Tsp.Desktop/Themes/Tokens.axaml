@@ -1,0 +1,63 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    设计令牌（spec §5.3）。颜色与圆角按主题分组：所有键在 Dark / Light 两组里成对出现，
+    View 一律用 {DynamicResource} 引用，运行中切换主题才会同帧生效（{StaticResource} 会在加载时把色值烤死）。
+    字体族与缓动与主题无关，放在主题字典之外。
+  -->
+  <ResourceDictionary.ThemeDictionaries>
+
+    <ResourceDictionary x:Key="Dark">
+      <SolidColorBrush x:Key="BaseBrush">#0A0A0B</SolidColorBrush>
+      <SolidColorBrush x:Key="SurfaceBrush">#18181B</SolidColorBrush>
+      <SolidColorBrush x:Key="ElevatedBrush">#212126</SolidColorBrush>
+      <SolidColorBrush x:Key="BorderBrush">#353539</SolidColorBrush>
+      <SolidColorBrush x:Key="FgPrimaryBrush">#FAFAFA</SolidColorBrush>
+      <SolidColorBrush x:Key="FgSecondaryBrush">#C4C4CB</SolidColorBrush>
+      <SolidColorBrush x:Key="FgMutedBrush">#8E8E96</SolidColorBrush>
+      <SolidColorBrush x:Key="AccentBrush">#3B82F6</SolidColorBrush>
+      <!-- 红涨绿跌：bull 与 bear 只用于价格与 K 线，不做 UI 状态色 -->
+      <SolidColorBrush x:Key="BullBrush">#F04438</SolidColorBrush>
+      <SolidColorBrush x:Key="BearBrush">#12B76A</SolidColorBrush>
+      <SolidColorBrush x:Key="WarningBrush">#F79009</SolidColorBrush>
+      <SolidColorBrush x:Key="DangerBrush">#F04438</SolidColorBrush>
+      <CornerRadius x:Key="CardRadius">8</CornerRadius>
+      <CornerRadius x:Key="BtnRadius">6</CornerRadius>
+      <CornerRadius x:Key="InputRadius">4</CornerRadius>
+      <CornerRadius x:Key="DialogRadius">12</CornerRadius>
+    </ResourceDictionary>
+
+    <ResourceDictionary x:Key="Light">
+      <SolidColorBrush x:Key="BaseBrush">#FAFAFA</SolidColorBrush>
+      <SolidColorBrush x:Key="SurfaceBrush">#FFFFFF</SolidColorBrush>
+      <SolidColorBrush x:Key="ElevatedBrush">#F4F4F5</SolidColorBrush>
+      <SolidColorBrush x:Key="BorderBrush">#E4E4E7</SolidColorBrush>
+      <SolidColorBrush x:Key="FgPrimaryBrush">#18181B</SolidColorBrush>
+      <SolidColorBrush x:Key="FgSecondaryBrush">#52525B</SolidColorBrush>
+      <SolidColorBrush x:Key="FgMutedBrush">#A1A1AA</SolidColorBrush>
+      <SolidColorBrush x:Key="AccentBrush">#3B82F6</SolidColorBrush>
+      <SolidColorBrush x:Key="BullBrush">#F04438</SolidColorBrush>
+      <SolidColorBrush x:Key="BearBrush">#12B76A</SolidColorBrush>
+      <SolidColorBrush x:Key="WarningBrush">#F79009</SolidColorBrush>
+      <SolidColorBrush x:Key="DangerBrush">#F04438</SolidColorBrush>
+      <CornerRadius x:Key="CardRadius">8</CornerRadius>
+      <CornerRadius x:Key="BtnRadius">6</CornerRadius>
+      <CornerRadius x:Key="InputRadius">4</CornerRadius>
+      <CornerRadius x:Key="DialogRadius">12</CornerRadius>
+    </ResourceDictionary>
+
+  </ResourceDictionary.ThemeDictionaries>
+
+  <!-- 字体：sans 优先 Inter（Avalonia.Fonts.Inter 已启用）→ 鸿蒙 → 苹方；mono 缺字体时回落系统等宽 -->
+  <FontFamily x:Key="SansFontFamily">Inter, HarmonyOS Sans SC, PingFang SC</FontFamily>
+  <FontFamily x:Key="MonoFontFamily">JetBrains Mono, IBM Plex Mono, Consolas</FontFamily>
+
+  <!-- 缓动：cubic-bezier(0.16, 1, 0.3, 1)（SplineEasing 只在构造期接受曲线，故用 x:Arguments） -->
+  <SplineEasing x:Key="SmoothEasing">
+    <x:Arguments>
+      <KeySpline>0.16,1,0.3,1</KeySpline>
+    </x:Arguments>
+  </SplineEasing>
+
+</ResourceDictionary>

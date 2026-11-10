@@ -1,0 +1,26 @@
+[
+  {
+    "instrument": { "symbol": "600519.SH", "name": "贵州茅台", "exchange": 0, "assetType": 0, "listedOn": "2001-08-27" },
+    "note": "核心持仓",
+    "close": 1702.30,
+    "changePct": 0.31
+  },
+  {
+    "instrument": { "symbol": "000001.SZ", "name": "平安银行", "exchange": 1, "assetType": 0, "listedOn": "1991-04-03" },
+    "note": null,
+    "close": 11.86,
+    "changePct": -0.84
+  },
+  {
+    "instrument": { "symbol": "300750.SZ", "name": "宁德时代", "exchange": 1, "assetType": 0, "listedOn": "2018-06-11" },
+    "note": "关注回踩买点",
+    "close": 268.45,
+    "changePct": 1.27
+  },
+  {
+    "instrument": { "symbol": "510300.SH", "name": "沪深300ETF", "exchange": 0, "assetType": 1, "listedOn": "2012-05-28" },
+    "note": "打新底仓",
+    "close": 4.213,
+    "changePct": 0.24
+  }
+]

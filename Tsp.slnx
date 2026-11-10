@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Tsp.Contracts/Tsp.Contracts.csproj" />
     <Project Path="src/Tsp.Desktop.ViewModels/Tsp.Desktop.ViewModels.csproj" />
+    <Project Path="src/Tsp.Desktop/Tsp.Desktop.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Tsp.Contracts.Tests/Tsp.Contracts.Tests.csproj" />
