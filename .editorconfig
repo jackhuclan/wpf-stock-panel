@@ -220,3 +220,10 @@ dotnet_diagnostic.CA1812.severity = none
 # AssemblyInfo 为生成代码，不做 using 清理
 [*{_AssemblyInfo.cs}]
 dotnet_diagnostic.IDE0005.severity = none
+
+# Avalonia XAML：与同文件的其它 XML 族（csproj/props/xml/resx/yml）保持一致的 2 空格。
+# 本仓库特有：`.editorconfig` 其余部分自 E:\wpf-float-agent 逐字复制，此段是**有意追加**，
+# 因为参考仓库是 WPF 项目、没有 axaml 概念——不要因"与源文件不一致"而误判为漂移。
+[*.axaml]
+indent_size = 2
+charset = utf-8
