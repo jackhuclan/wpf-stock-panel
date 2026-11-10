@@ -47,7 +47,7 @@ public sealed class FixtureApiClientTests : IDisposable
     {
         var sut = new FixtureApiClient(Path.Combine(_dir, "not-here"));
 
-        var ex = await Assert.ThrowsAsync<FixtureDataException>(() => sut.GetIndexQuotesAsync(CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<TspApiException>(() => sut.GetIndexQuotesAsync(CancellationToken.None));
 
         Assert.Contains("not-here", ex.Message);
     }
@@ -60,7 +60,7 @@ public sealed class FixtureApiClientTests : IDisposable
         var relative = "tsp-fixture-relative-" + Guid.NewGuid().ToString("N");
         var sut = new FixtureApiClient(relative);
 
-        var ex = await Assert.ThrowsAsync<FixtureDataException>(() => sut.GetIndexQuotesAsync(CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<TspApiException>(() => sut.GetIndexQuotesAsync(CancellationToken.None));
 
         Assert.Contains(Path.GetFullPath(relative), ex.Message);
     }
@@ -71,9 +71,12 @@ public sealed class FixtureApiClientTests : IDisposable
         Directory.CreateDirectory(_dir);
         var sut = new FixtureApiClient(_dir);
 
-        var ex = await Assert.ThrowsAsync<FixtureDataException>(() => sut.GetIndexQuotesAsync(CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<TspApiException>(() => sut.GetIndexQuotesAsync(CancellationToken.None));
 
         Assert.Contains("index-quotes.json", ex.Message);
+        // 只断言"含文件名"钉不住分支：文件缺失与 JSON 损坏两种消息都含文件名，
+        // 若哪天把文件缺失也写成损坏的措辞，上面那条照样通过。这条钉住两条路径措辞互异。
+        Assert.DoesNotContain("不是合法 JSON", ex.Message);
     }
 
     [Fact]
@@ -82,7 +85,7 @@ public sealed class FixtureApiClientTests : IDisposable
         Write("index-quotes.json", "{ this is not json");
         var sut = new FixtureApiClient(_dir);
 
-        var ex = await Assert.ThrowsAsync<FixtureDataException>(() => sut.GetIndexQuotesAsync(CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<TspApiException>(() => sut.GetIndexQuotesAsync(CancellationToken.None));
 
         Assert.Contains("index-quotes.json", ex.Message);
     }
@@ -91,14 +94,14 @@ public sealed class FixtureApiClientTests : IDisposable
     public async Task Corrupt_json_message_also_carries_the_original_parser_message()
     {
         // 契约要求损坏消息里同时有文件名与**原始异常消息**（它带行列位置，是修夹具的唯一线索）。
-        // 用一个选项相同的反序列化现场取得那条原始消息，再断言它确实被包进了 FixtureDataException。
+        // 用一个选项相同的反序列化现场取得那条原始消息，再断言它确实被包进了 TspApiException。
         const string bad = "{ this is not json";
         Write("index-quotes.json", bad);
         var sut = new FixtureApiClient(_dir);
         var original = Assert.Throws<JsonException>(
             () => JsonSerializer.Deserialize<List<IndexQuote>>(bad, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
 
-        var ex = await Assert.ThrowsAsync<FixtureDataException>(() => sut.GetIndexQuotesAsync(CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<TspApiException>(() => sut.GetIndexQuotesAsync(CancellationToken.None));
 
         Assert.Contains("index-quotes.json", ex.Message);
         Assert.Contains(original.Message, ex.Message);
@@ -150,6 +153,28 @@ public sealed class FixtureApiClientTests : IDisposable
         Assert.Equal(2, bars.Count);
         Assert.Equal(new DateOnly(2026, 10, 22), bars[0].Date);
         Assert.Equal(new DateOnly(2026, 10, 23), bars[1].Date);
+    }
+
+    [Fact]
+    public async Task GetDailyBars_sorts_ascending_even_when_the_fixture_is_descending()
+    {
+        // 契约承诺"按日期升序"，但过滤本身不排序。上面那条之所以能过，是因为它写的夹具
+        // 恰好就是升序的——顺序全靠夹具自己守规矩，实现根本没排。若任务 6 倒序落盘，
+        // 界面会拿到反向 K 线而全部测试照旧全绿。这条把夹具刻意写成倒序，
+        // 让返回顺序与数据源顺序脱钩，把承诺钉在实现上而不是钉在夹具上。
+        Write("daily-bars/600519.SH.json", """
+            [{"symbol":"600519.SH","date":"2026-10-23","open":1695,"high":1710,"low":1692,"close":1705,"volume":110,"amount":187550},
+             {"symbol":"600519.SH","date":"2026-10-22","open":1690,"high":1700,"low":1685,"close":1695,"volume":100,"amount":169500},
+             {"symbol":"600519.SH","date":"2026-10-21","open":1680,"high":1690,"low":1675,"close":1685,"volume":90,"amount":151650}]
+            """);
+        var sut = new FixtureApiClient(_dir);
+
+        var bars = await sut.GetDailyBarsAsync("600519.SH", new DateOnly(2026, 10, 21), new DateOnly(2026, 10, 23), CancellationToken.None);
+
+        Assert.Equal(3, bars.Count);
+        Assert.Equal(
+            new[] { new DateOnly(2026, 10, 21), new DateOnly(2026, 10, 22), new DateOnly(2026, 10, 23) },
+            bars.Select(bar => bar.Date));
     }
 
     [Fact]
