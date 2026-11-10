@@ -85,8 +85,10 @@ public sealed class FixtureApiClient : ITspApiClient
         }
         catch (JsonException ex)
         {
-            // 原始消息带着出错的行列位置，对修夹具的人有用，故原样附上。
-            throw new FixtureDataException($"夹具文件 {fileName} 不是合法 JSON：{ex.Message}");
+            // 原始消息折进文案给用户看；异常对象本身也经 InnerException 保留，
+            // 因为 JsonException 的结构化 Path / LineNumber / BytePositionInLine
+            // 比消息文本更能直接定位到出错的成员。
+            throw new FixtureDataException($"夹具文件 {fileName} 不是合法 JSON：{ex.Message}", ex);
         }
     }
 }
