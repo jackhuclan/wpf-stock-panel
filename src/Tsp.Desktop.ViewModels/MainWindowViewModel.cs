@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Tsp.Contracts.Market;
 using Tsp.Desktop.ViewModels.Navigation;
 using Tsp.Desktop.ViewModels.Services;
 
@@ -60,16 +61,47 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private PageRoute? _selectedMenuRoute;
 
     /// <summary>
+    /// 最近一次成功取到的指数快照，侧栏指数条的数据源。顺序即数据源给出的顺序。
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IndexBar))]
+    private IReadOnlyList<IndexQuote> _indexQuotes = [];
+
+    /// <summary>
     /// 当前数据是否来自夹具。界面据此明示"你看到的不是真实行情"。
     /// </summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowFixtureBadge))]
     private bool _isFixtureData;
 
     /// <summary>
     /// 取数失败的**可读**说明，取自 <see cref="TspApiException.Message"/>；无失败时为 <c>null</c>。
     /// </summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasError))]
     private string? _errorMessage;
+
+    /// <summary>
+    /// 指数条的绑定源：<see cref="IndexQuotes"/> 的界面投影（文案 + 涨跌方向），随每次成功取数刷新。
+    /// 不另存一份状态——它就是快照的投影，快照一变就跟着变。
+    /// </summary>
+    public IReadOnlyList<IndexQuoteRow> IndexBar => IndexQuotes.Select(IndexQuoteRow.From).ToList();
+
+    /// <summary>
+    /// 是否显示"夹具数据"角标。**恒等于客户端的自报身份**（<see cref="ITspApiClient.IsFixtureData"/>）：
+    /// 角标存在的全部意义就是让用户无法把夹具数据当成真实行情，若由 View 自己判断（按数据形状、按路由猜），
+    /// 这个保证就没了——那正是接口带着这个属性的理由。
+    /// 它是 <see cref="IsFixtureData"/> 的别名而非第二份状态：两者不可能各自漂移。
+    /// </summary>
+    public bool ShowFixtureBadge => IsFixtureData;
+
+    /// <summary>
+    /// 是否处于取数失败态（<see cref="ErrorMessage"/> 非空）。
+    /// 它与另外两件事互不相干：<see cref="IsRouteMissing"/> 说的是"这条路由没注册"，
+    /// 本属性说的是"客户端这次没读到数据"，<see cref="ShowFixtureBadge"/> 说的是"读到的是夹具"。
+    /// 三者都不由对方推导，界面也不得把它们合并成一种状态。
+    /// </summary>
+    public bool HasError => ErrorMessage is not null;
 
     /// <summary>
     /// 是否停在某一页上（含设置页）。为 <c>false</c> 即空状态。
@@ -106,8 +138,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         try
         {
-            // P0 的壳只需要这次调用确认夹具可读；快照本身在 Task 8 落进侧栏指数条。
-            await _apiClient.GetIndexQuotesAsync(CancellationToken.None);
+            // 快照落在侧栏指数条上；这次调用同时是"夹具可读"的确认。
+            IndexQuotes = await _apiClient.GetIndexQuotesAsync(CancellationToken.None);
             IsFixtureData = _apiClient.IsFixtureData;
 
             // 重跑成功要抹掉上一次的错误，否则界面会留着一条已经过期的失败提示。

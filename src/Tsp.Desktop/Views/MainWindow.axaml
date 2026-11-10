@@ -14,20 +14,45 @@
         FontFamily="{DynamicResource SansFontFamily}">
 
   <!--
-    主窗口骨架（spec §5.4）：左侧栏（19 页菜单 + 底部设置入口与主题切换 + 指数条）+ 1px 分隔线 + 内容区。
+    主窗口骨架（spec §5.4）：左侧栏（夹具角标 + 19 页菜单 + 底部设置入口与主题切换 + 指数条）+ 1px 分隔线 + 内容区。
 
-    控件外观一律来自 Themes/Controls.axaml 的具名样式（nav-list / ghost / card / tile），本文件不再自带 <Window.Styles>。
+    控件外观一律来自 Themes/Controls.axaml 的具名样式（nav-list / ghost / card / badge / tile / quote-value），
+    本文件不再自带 <Window.Styles>，也不复写样式里已有的形状与颜色。
     颜色只出现在令牌引用里，且必须用 {DynamicResource}——{StaticResource} 会把色值在加载时烤死，
     运行中切换主题就不会跟随（Review Focus 第 4 项）。
+    留白的外边距（Margin）按样式库的第 4 条铁律写在使用处，不复用到样式里。
   -->
 
   <Grid ColumnDefinitions="220,1,*">
 
     <!-- 左侧栏 -->
-    <Grid Grid.Column="0" RowDefinitions="*,Auto,Auto" Background="{DynamicResource SurfaceBrush}">
+    <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto,Auto" Background="{DynamicResource SurfaceBrush}">
+
+      <!--
+        夹具角标（spec §5.2 的硬要求）：固定在侧栏顶部、紧挨菜单之上，位置显眼到用户不可能忽略"数据是假的"。
+        可见性只由 ShowFixtureBadge 决定，而它恒等于客户端的自报身份 ITspApiClient.IsFixtureData——
+        由 View 自己猜（按数据形状、按路由）就达不到"无法把夹具当成真行情"这个保证。
+        外观走具名样式 badge；只把文字色改为 WarningBrush：数据来源是警示语义，
+        不是核心/扩展域徽标那套 AccentBrush（AGENTS §7.1 的颜色语义分工）。文字色不算重复定义——
+        badge 给的是"徽标是什么形状"，这里给的是"这一枚徽标警示什么"。
+
+        P0 的"固定位置"就是这里。P1 若把角标挪进标题栏或状态栏，动的是本块的位置，不是它的判据。
+
+        上边距只留 2px，下面的指数条上边距留 0：侧栏的纵向余量是按"19 项菜单在 1280x800 下
+        不需要滚动"验收过的（Task 6/Task 7），角标这一行是新增的高度，得从侧栏自己的留白里挪出来——
+        实测留 8px 时 19 项就会溢出并冒出滚动条。这几处都是在**使用处**调留白（样式库第 4 条铁律）。
+      -->
+      <Border Grid.Row="0"
+              Classes="badge"
+              IsVisible="{Binding ShowFixtureBadge}"
+              Margin="8,2,8,0">
+        <TextBlock Text="夹具数据 · 非真实行情"
+                   FontWeight="SemiBold"
+                   Foreground="{DynamicResource WarningBrush}" />
+      </Border>
 
       <!-- 19 页菜单。SelectedItem 两向绑定 SelectedMenuRoute：设置页不在 Menu 内，其选中态必然为空。 -->
-      <ListBox Grid.Row="0"
+      <ListBox Grid.Row="1"
                Classes="nav-list"
                ItemsSource="{Binding Menu}"
                SelectedItem="{Binding SelectedMenuRoute, Mode=TwoWay}">
@@ -44,12 +69,15 @@
       <!--
         侧栏底部入口。设置与明暗切换并排一行，而不是上下堆叠：底部区块因此保持 Task 6 的高度，
         19 项菜单在默认 1280x800 下仍然全部可见、不出现滚动条（堆叠会多占一行，把菜单顶出滚动条）。
+        两个按钮的外间距写在这里：贴边 8px，两者之间的间隙 0+0=0（样式库不再自带 8px 两边距，
+        否则中间那道缝会变成 16px，与贴边的 8px 对不上）。
       -->
-      <Grid Grid.Row="1" ColumnDefinitions="*,*">
+      <Grid Grid.Row="2" ColumnDefinitions="*,*">
 
         <!-- 设置页独立于 19 页表格（spec §5.6），由这里单独进入 -->
         <Button Grid.Column="0"
                 Classes="ghost"
+                Margin="8,1,0,4"
                 Content="设置"
                 Command="{Binding NavigateCommand}"
                 CommandParameter="{Binding SettingsRoute}" />
@@ -61,45 +89,68 @@
         -->
         <Button Grid.Column="1"
                 Classes="ghost"
+                Margin="0,1,8,4"
                 Content="切换主题"
                 Click="OnToggleThemeClick" />
 
       </Grid>
 
       <!--
-        侧栏底部指数条：Task 8 把它接到 IndexQuotes 上（名称、点位、涨跌幅，涨用 BullBrush / 跌用 BearBrush）。
-        此处先落到产品契约固定的四只核心指数与占位数值，把布局、令牌与等宽字体先钉死。
+        侧栏底部指数条：产品契约固定的四只核心指数（spec §5.4），每格显示名称、点位与涨跌幅。
+        数据源是 MainWindowViewModel.IndexBar（IndexQuotes 的界面投影：文案 + 涨跌方向）；
+        涨跌色由 TextBlock.quote-value 的 up / down 类给出——红涨绿跌，View 不自己判断方向，也不写死颜色。
+        字体同理走该类：数字一律等宽是全局规则，不必在每个数字上重复一遍。
+
+        四格仍用 card（外框）+ tile（小格）具名样式。原设计靠 Grid 的 Column/RowSpacing 撑开 6px 间隙，
+        改用 UniformGrid（它没有间距属性）后，间隙由每格 Margin="3" 得到；外框的内边距随之收到
+        Padding="3,0"（左右仍 3+3=6，上下由小格自己的 3px 外距给），纵向因此比原设计省下 6px——
+        与夹具角标一样是在给"19 项菜单不滚动"腾余量，格与格之间的 6px 间隙没有变。
       -->
-      <Border Grid.Row="2"
+      <Border Grid.Row="3"
               Classes="card"
-              Margin="8,2,8,8"
-              Padding="6">
-        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="6" RowSpacing="6">
-          <Border Grid.Row="0" Grid.Column="0" Classes="tile">
-            <StackPanel Spacing="2">
-              <TextBlock Text="上证指数" FontSize="10" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource FgSecondaryBrush}" />
-              <TextBlock Text="—" FontSize="11" FontFamily="{DynamicResource MonoFontFamily}" Foreground="{DynamicResource FgMutedBrush}" />
-            </StackPanel>
-          </Border>
-          <Border Grid.Row="0" Grid.Column="1" Classes="tile">
-            <StackPanel Spacing="2">
-              <TextBlock Text="深证成指" FontSize="10" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource FgSecondaryBrush}" />
-              <TextBlock Text="—" FontSize="11" FontFamily="{DynamicResource MonoFontFamily}" Foreground="{DynamicResource FgMutedBrush}" />
-            </StackPanel>
-          </Border>
-          <Border Grid.Row="1" Grid.Column="0" Classes="tile">
-            <StackPanel Spacing="2">
-              <TextBlock Text="创业板指" FontSize="10" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource FgSecondaryBrush}" />
-              <TextBlock Text="—" FontSize="11" FontFamily="{DynamicResource MonoFontFamily}" Foreground="{DynamicResource FgMutedBrush}" />
-            </StackPanel>
-          </Border>
-          <Border Grid.Row="1" Grid.Column="1" Classes="tile">
-            <StackPanel Spacing="2">
-              <TextBlock Text="科创综指" FontSize="10" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource FgSecondaryBrush}" />
-              <TextBlock Text="—" FontSize="11" FontFamily="{DynamicResource MonoFontFamily}" Foreground="{DynamicResource FgMutedBrush}" />
-            </StackPanel>
-          </Border>
-        </Grid>
+              Margin="8,0,8,4"
+              Padding="3,0">
+        <ItemsControl ItemsSource="{Binding IndexBar}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Columns="2" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="vm:IndexQuoteRow">
+              <Border Classes="tile" Margin="3">
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="4" RowSpacing="2">
+                  <!-- 名称：宽数字挤压时先牺牲它（省略号收尾），点位与涨跌幅不能被截 -->
+                  <TextBlock Grid.Row="0"
+                             Grid.Column="0"
+                             Text="{Binding Name}"
+                             FontSize="10"
+                             TextWrapping="NoWrap"
+                             TextTrimming="CharacterEllipsis"
+                             Foreground="{DynamicResource FgSecondaryBrush}" />
+                  <TextBlock Grid.Row="0"
+                             Grid.Column="1"
+                             Classes="quote-value"
+                             Classes.up="{Binding IsUp}"
+                             Classes.down="{Binding IsDown}"
+                             Text="{Binding ChangeText}"
+                             FontSize="10"
+                             TextWrapping="NoWrap" />
+                  <TextBlock Grid.Row="1"
+                             Grid.Column="0"
+                             Grid.ColumnSpan="2"
+                             Classes="quote-value"
+                             Classes.up="{Binding IsUp}"
+                             Classes.down="{Binding IsDown}"
+                             Text="{Binding CloseText}"
+                             FontSize="11"
+                             TextWrapping="NoWrap"
+                             TextTrimming="CharacterEllipsis" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
       </Border>
 
     </Grid>
@@ -111,6 +162,46 @@
       由 PlaceholderPage 自己按 CurrentRoute 渲染。P1 有第二种页面时，这里换成按路由键分发的内容宿主。
     -->
     <pages:PlaceholderPage Grid.Column="2" />
+
+    <!--
+      取数失败态（Task 8）：客户端抛 TspApiException 时 ErrorMessage 非空，内容区显示可读错误，
+      既不是白屏、也不是崩溃（Review Focus 第 2 项 / AGENTS §8 的"异常不得穿透到 UI"落点）。
+
+      它与别处的状态互不相干，三者各按各的判据显示，谁都不由谁推导：
+        · 本块      HasError      —— 客户端这次没读到数据
+        · 占位页    IsRouteMissing—— 这条路由没注册（Task 6）
+        · 夹具角标  ShowFixtureBadge —— 读到的是夹具
+      本块是铺满内容区的一层，z 序排在占位页之后，因此失败态期间盖住占位页：数据都没读到，
+      页面本身的占位内容没有意义。它不改写占位页那两个状态的绑定，两者也不会同时出现在用户眼前。
+
+      它放在壳里而不是占位页里：占位页是 P1 会被替换掉的东西，而"取数失败要看得见"是壳的保证。
+    -->
+    <Border Grid.Column="2"
+            IsVisible="{Binding HasError}"
+            Background="{DynamicResource BaseBrush}">
+      <Border Classes="card"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              MinWidth="360"
+              MaxWidth="560"
+              Padding="24">
+        <StackPanel Spacing="10">
+          <!-- 失败用 DangerBrush：这是 UI 状态色，与行情数值的 bull / bear 分工不同 -->
+          <TextBlock Text="数据加载失败"
+                     FontSize="18"
+                     FontWeight="SemiBold"
+                     Foreground="{DynamicResource DangerBrush}" />
+          <TextBlock Text="{Binding ErrorMessage}"
+                     FontSize="13"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource FgPrimaryBrush}" />
+          <TextBlock Text="这是取数失败，不是空页面，也不是没有这个页面。请确认数据源可用（P0 为 exe 目录下的 Fixtures）后重启。"
+                     FontSize="12"
+                     TextWrapping="Wrap"
+                     Foreground="{DynamicResource FgMutedBrush}" />
+        </StackPanel>
+      </Border>
+    </Border>
 
   </Grid>
 

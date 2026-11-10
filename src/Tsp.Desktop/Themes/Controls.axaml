@@ -12,11 +12,16 @@
        缓动 SmoothEasing 与主题无关，用 {StaticResource} 取即可；
     3) 库里的具名样式必须有消费者，页面里也不得再留与具名样式重复的内联样式——
        否则库和页面各写一份，本文件就白建了。
+    4) **外边距（Margin）不属于样式**：同一个控件在不同页面里占的地方并不一样，一律写在挂类的那一行上。
+       控件自身的内边距（Padding）则属于它的形状（tile 的厚度、badge 的胖瘦），留在库里，
+       使用处若确实要另定厚薄，也是在那一行上写——不要回到库里改，那会把别的页面的形状一起改掉。
 
     消费者一览（新页面挂这些类即可，不要再抄一份同样的样式）：
       nav-list   MainWindow 侧栏菜单            ghost   MainWindow 侧栏底部按钮
-      card       MainWindow 指数条外框、PlaceholderPage 内容卡
-      badge      PlaceholderPage 核心/扩展域徽标  tile    MainWindow 指数条四个小格
+      card       MainWindow 指数条外框、取数失败态卡片、PlaceholderPage 内容卡
+      badge      MainWindow 夹具角标、PlaceholderPage 核心/扩展域徽标
+      tile       MainWindow 指数条四个小格
+      quote-value（含 .up / .down）  MainWindow 指数条的点位与涨跌幅
 
     本文件由 App.axaml 在 <FluentTheme /> **之后**引入，因此下面的 Setter 覆盖主题默认值。
   -->
@@ -64,13 +69,13 @@
   <!-- ===== 按钮 =====
        幽灵按钮：透明底、无边框、圆角 BtnRadius，悬停才升起一层 elevated 面。
        同样是盖 ContentPresenter 而不是 Button.Background——FluentTheme 的悬停底色加在模板内的
-       ContentPresenter 上，只设 Button 的 Background 会被它压过去。 -->
+       ContentPresenter 上，只设 Button 的 Background 会被它压过去。
+       外间距不在这里：侧栏底部的两个按钮左右间距不同（贴边 8px、中间 0），留给挂类的那一行写。 -->
   <Style Selector="Button.ghost">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="CornerRadius" Value="{DynamicResource BtnRadius}" />
     <Setter Property="Padding" Value="10,7" />
-    <Setter Property="Margin" Value="8,1,8,4" />
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="HorizontalContentAlignment" Value="Left" />
     <Setter Property="FontSize" Value="13" />
@@ -125,6 +130,24 @@
     <Setter Property="Background" Value="{DynamicResource ElevatedBrush}" />
     <Setter Property="CornerRadius" Value="{DynamicResource InputRadius}" />
     <Setter Property="Padding" Value="6,5" />
+  </Style>
+
+  <!-- ===== 行情数值 =====
+       点位 / 涨跌幅这类数字：一律等宽字形（spec §5.3 的"数字一律等宽"），方向由挂类的元素
+       用 Classes.up / Classes.down 表达（数据侧给的是方向，不是颜色——颜色只在这里出现）。
+       红涨绿跌用的是 bull / bear，**只用于价格与行情数值**，绝不做 UI 状态色
+       （成功 / 失败 / 警告另有 accent / warning / danger）。
+       两个方向类都为假即平盘，走中性色，于是"涨红跌绿"不会把平盘误标成涨。
+       字号不在这里：同一个方向色在指数条（小字）与 P1 的行情表（大字）里大小不同。 -->
+  <Style Selector="TextBlock.quote-value">
+    <Setter Property="FontFamily" Value="{DynamicResource MonoFontFamily}" />
+    <Setter Property="Foreground" Value="{DynamicResource FgSecondaryBrush}" />
+  </Style>
+  <Style Selector="TextBlock.quote-value.up">
+    <Setter Property="Foreground" Value="{DynamicResource BullBrush}" />
+  </Style>
+  <Style Selector="TextBlock.quote-value.down">
+    <Setter Property="Foreground" Value="{DynamicResource BearBrush}" />
   </Style>
 
 </Styles>

@@ -78,6 +78,73 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task Load_populates_index_quotes_and_shows_fixture_badge()
+    {
+        var client = new FakeApiClient { IndexQuotes = [new IndexQuote("000001.SH", "上证指数", 3697.52m, 0.19m)] };
+        var sut = new MainWindowViewModel(new NavigationService(), client);
+
+        await sut.LoadCommand.ExecuteAsync(null);
+
+        Assert.Single(sut.IndexQuotes);
+        Assert.True(sut.ShowFixtureBadge);
+    }
+
+    [Fact]
+    public async Task Fixture_badge_is_hidden_when_client_is_not_fixture_data()
+    {
+        var client = new FakeApiClient { IsFixtureData = false };
+        var sut = new MainWindowViewModel(new NavigationService(), client);
+
+        await sut.LoadCommand.ExecuteAsync(null);
+
+        Assert.False(sut.ShowFixtureBadge);
+    }
+
+    [Fact]
+    public async Task Index_bar_rows_carry_the_display_text_and_direction()
+    {
+        // 指数条的格子只绑 ViewModel：文案（名称 / 点位 / 涨跌幅）与涨跌方向都在这里定，
+        // View 只负责把方向映射成红涨绿跌的令牌色。方向判断可单测，所以它不在 XAML 的值转换器里。
+        var client = new FakeApiClient
+        {
+            IndexQuotes =
+            [
+                new IndexQuote("000001.SH", "上证指数", 3697.52m, 0.19m),
+                new IndexQuote("399006.SZ", "创业板指", 2658.23m, -0.31m),
+            ],
+        };
+        var sut = new MainWindowViewModel(new NavigationService(), client);
+
+        await sut.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(
+            new[]
+            {
+                ("上证指数", "3697.52", "+0.19%", true, false),
+                // 跌：数字自带负号，不靠颜色单独承载涨跌信息（灰度截图与色觉障碍下同样读得出来）。
+                ("创业板指", "2658.23", "-0.31%", false, true),
+            },
+            sut.IndexBar.Select(row => (row.Name, row.CloseText, row.ChangeText, row.IsUp, row.IsDown)));
+    }
+
+    [Fact]
+    public async Task Successful_load_clears_a_stale_error_message()
+    {
+        // Task 8 起这条错误在内容区是**可见的**：若成功取数之后不抹掉上一次的失败提示，
+        // 界面就会一边显示着数据、一边挂着一句已经过期的"读不到数据"——那是界面在说谎。
+        var client = new FakeApiClient(new TspApiException("/gone: 夹具目录不存在"));
+        var sut = new MainWindowViewModel(new NavigationService(), client);
+        await sut.LoadCommand.ExecuteAsync(null);
+        Assert.True(sut.HasError);
+
+        client.Failure = null;
+        await sut.LoadCommand.ExecuteAsync(null);
+
+        Assert.Null(sut.ErrorMessage);
+        Assert.False(sut.HasError);
+    }
+
+    [Fact]
     public async Task Load_pushes_exactly_one_history_frame_and_selects_the_first_menu_entry()
     {
         // 首屏那次导航同时要走两条路：导航服务（CurrentRoute）与侧栏选中态（SelectedMenuRoute）。
@@ -156,11 +223,14 @@ public sealed class MainWindowViewModelTests
     }
 
     /// <summary>
-    /// 测试替身：按构造参数决定"取数成功"还是"抛 <see cref="TspApiException"/>"。
-    /// Task 8 会复用它的 <see cref="IndexQuotes"/> 与 <see cref="IsFixtureData"/>。
+    /// 测试替身：按 <see cref="Failure"/> 决定"取数成功"还是"抛 <see cref="TspApiException"/>"。
+    /// 它是可写属性而不是只读入参——Task 8 要验证"失败之后的下一次成功必须抹掉过期错误"，
+    /// 同一次装配就得既能失败又能成功。
     /// </summary>
     private sealed class FakeApiClient(TspApiException? failure = null) : ITspApiClient
     {
+        public TspApiException? Failure { get; set; } = failure;
+
         public bool IsFixtureData { get; init; } = true;
         public IReadOnlyList<IndexQuote> IndexQuotes { get; init; } = [];
 
@@ -169,6 +239,6 @@ public sealed class MainWindowViewModelTests
         public Task<IReadOnlyList<DailyBar>> GetDailyBarsAsync(string symbol, DateOnly from, DateOnly to, CancellationToken cancellationToken) => Respond<IReadOnlyList<DailyBar>>([]);
         public Task<IReadOnlyList<WatchlistItem>> GetWatchlistAsync(CancellationToken cancellationToken) => Respond<IReadOnlyList<WatchlistItem>>([]);
 
-        private Task<T> Respond<T>(T value) => failure is null ? Task.FromResult(value) : Task.FromException<T>(failure);
+        private Task<T> Respond<T>(T value) => Failure is null ? Task.FromResult(value) : Task.FromException<T>(Failure);
     }
 }
