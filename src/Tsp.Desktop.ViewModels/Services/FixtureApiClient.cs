@@ -64,8 +64,8 @@ public sealed class FixtureApiClient : ITspApiClient
 
     /// <summary>
     /// 读一个 JSON 数组文件并反序列化成 <typeparamref name="T"/> 列表。
-    /// 三种失败各有各的可读消息：目录缺失报绝对路径，文件缺失与 JSON 损坏报文件名，
-    /// 字段缺失则交给 DTO 自身的默认值兜住、正常映射。
+    /// 三种失败各有各的可读消息：目录缺失报绝对路径，文件缺失报文件名与它**应当所在的那一层目录**，
+    /// JSON 损坏报文件名，字段缺失则交给 DTO 自身的默认值兜住、正常映射。
     /// </summary>
     private async Task<IReadOnlyList<T>> ReadListAsync<T>(string relativePath, CancellationToken cancellationToken)
     {
@@ -79,7 +79,9 @@ public sealed class FixtureApiClient : ITspApiClient
         string fullPath = Path.Combine(_fixtureDirectory, relativePath);
         if (!File.Exists(fullPath))
         {
-            throw new TspApiException($"夹具文件缺失：{fileName}（应位于 {_fixtureDirectory}）");
+            // 目录取**实际路径的那一层**而不是夹具根：日线在 {夹具根}/daily-bars/ 下，
+            // 报夹具根会把用户支到错误的地方去找（那里当然没有这个文件，于是更看不出缺什么）。
+            throw new TspApiException($"夹具文件缺失：{fileName}（应位于 {Path.GetDirectoryName(fullPath)}）");
         }
 
         string json = await File.ReadAllTextAsync(fullPath, cancellationToken).ConfigureAwait(false);

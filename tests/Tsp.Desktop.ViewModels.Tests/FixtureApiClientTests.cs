@@ -80,6 +80,23 @@ public sealed class FixtureApiClientTests : IDisposable
     }
 
     [Fact]
+    public async Task Missing_daily_bar_file_names_the_daily_bars_directory()
+    {
+        // 日线在 {夹具根}/daily-bars/ 下。消息若拿夹具根冒充"应位于"，用户照它去找当然找不到，
+        // 反而更看不出缺的是什么——所以要报**实际那一层**目录。
+        Directory.CreateDirectory(Path.Combine(_dir, "daily-bars"));
+        var sut = new FixtureApiClient(_dir);
+
+        var ex = await Assert.ThrowsAsync<TspApiException>(
+            () => sut.GetDailyBarsAsync("600519.SH", new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 31), CancellationToken.None));
+
+        Assert.Contains("600519.SH.json", ex.Message);
+        Assert.Contains(Path.Combine(Path.GetFullPath(_dir), "daily-bars"), ex.Message);
+        // 反面：旧行为报的是夹具根，那一层里必然没有这个文件。
+        Assert.DoesNotContain($"应位于 {Path.GetFullPath(_dir)}）", ex.Message);
+    }
+
+    [Fact]
     public async Task Corrupt_json_reports_readable_error_naming_the_file()
     {
         Write("index-quotes.json", "{ this is not json");
@@ -234,24 +251,9 @@ public sealed class FixtureApiClientTests : IDisposable
     }
 
     /// <summary>
-    /// 找到仓库内的生产夹具目录 <c>src/Tsp.Desktop/Fixtures</c>：从测试自己的输出目录向上走到仓库根
-    /// （以 <c>Tsp.slnx</c> 为标记），不写死绝对路径，换机器、换检出位置都成立。
+    /// 仓库内的生产夹具目录 <c>src/Tsp.Desktop/Fixtures</c>（定位逻辑见 <see cref="RepoRoot"/>）。
     /// </summary>
-    private static string ProductionFixtureDirectory()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Tsp.slnx")))
-        {
-            directory = directory.Parent;
-        }
-
-        if (directory is null)
-        {
-            throw new InvalidOperationException($"没能从 {AppContext.BaseDirectory} 向上找到仓库根（Tsp.slnx）。");
-        }
-
-        return Path.Combine(directory.FullName, "src", "Tsp.Desktop", "Fixtures");
-    }
+    private static string ProductionFixtureDirectory() => RepoRoot.Combine("src/Tsp.Desktop/Fixtures");
 
     private void Write(string relativePath, string json)
     {
