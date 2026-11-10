@@ -68,4 +68,23 @@ public sealed class RoutesTests
 
         Assert.Equal(expected, actual);
     }
+
+    [Fact]
+    public void All_is_ordered_by_ascending_order_matching_spec_table()
+    {
+        // spec §5.6 表格的行序，逐行对应 Order（1 起、连续升序）与路由键。
+        // 同时钉住三件事：Order 的取值、其升序序列、以及"哪个页面拿哪个 Order"——
+        // 第三条是单看 Enumerable.Range(1, 19) 序列断言漏掉的那一维。
+        var expected = new (int Order, string Key)[]
+        {
+            (1, "/dashboard"), (2, "/watchlist"), (3, "/screener"), (4, "/factors"), (5, "/backtest"),
+            (6, "/regime"), (7, "/indices"), (8, "/data"), (9, "/stock-analysis"), (10, "/limit-ladder"),
+            (11, "/concept-analysis"), (12, "/industry-analysis"), (13, "/financials"), (14, "/monitor"),
+            (15, "/abnormal"), (16, "/lots"), (17, "/paper"), (18, "/signals"), (19, "/review"),
+        };
+
+        var actual = Routes.All.Select(r => (r.Order, r.Key)).ToArray();
+
+        Assert.Equal(expected, actual);
+    }
 }
