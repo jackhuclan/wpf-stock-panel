@@ -33,3 +33,7 @@ secrets.json
 *.svclog
 mono_crash.*.json
 mono_crash.*.blob
+
+# 过程记录（SDD 的 ledger、任务简报与报告：本地草稿，不入库）。
+# 规则必须写在这里——`.superpowers/sdd/.gitignore` 自身也在未跟踪目录里，克隆下来不会随行。
+.superpowers/
