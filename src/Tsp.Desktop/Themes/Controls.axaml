@@ -5,11 +5,18 @@
     控件样式库（spec §5.3 / §5.4）。Task 6 里散落在 MainWindow 的控件样式收敛于此，
     供 Task 8 与 P1 的页面按名复用；主窗口只保留具名引用，不再自带样式。
 
-    两条铁律：
+    三条铁律：
     1) 命名按"控件是什么"（侧栏项 / 卡片 / 徽标 / 按钮），不按"用在哪"——否则换个页面就得改名；
     2) 颜色只引用 Themes/Tokens.axaml 的令牌键，一律 {DynamicResource}。{StaticResource}
        会在加载时把色值烤死，运行中切换主题就不会跟随（Review Focus 第 4 项）。
-       缓动 SmoothEasing 与主题无关，用 {StaticResource} 取即可。
+       缓动 SmoothEasing 与主题无关，用 {StaticResource} 取即可；
+    3) 库里的具名样式必须有消费者，页面里也不得再留与具名样式重复的内联样式——
+       否则库和页面各写一份，本文件就白建了。
+
+    消费者一览（新页面挂这些类即可，不要再抄一份同样的样式）：
+      nav-list   MainWindow 侧栏菜单            ghost   MainWindow 侧栏底部按钮
+      card       MainWindow 指数条外框、PlaceholderPage 内容卡
+      badge      PlaceholderPage 核心/扩展域徽标  tile    MainWindow 指数条四个小格
 
     本文件由 App.axaml 在 <FluentTheme /> **之后**引入，因此下面的 Setter 覆盖主题默认值。
   -->
@@ -98,7 +105,7 @@
 
   <!-- ===== 徽标 =====
        核心 / 扩展页的域徽标。底与描边抬一层，文字走 AccentBrush。
-       P0 的占位页仍是自带样式的旧写法（不在本任务改动范围内），Task 8 与 P1 的页面直接挂 Classes="badge"。 -->
+       消费者：P0 的 PlaceholderPage 直接挂 Classes="badge"；Task 8 与 P1 的页面同理。 -->
   <Style Selector="Border.badge">
     <Setter Property="Padding" Value="8,2" />
     <Setter Property="HorizontalAlignment" Value="Left" />

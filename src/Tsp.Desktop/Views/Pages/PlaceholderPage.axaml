@@ -9,20 +9,20 @@
     P0 的占位页：显示当前页的中文页名、路由键与域徽标。
     未命中路由（CurrentRoute 为 null）时必须显示明确的空状态，既不是空白面板也不是崩溃。
     本页刻意直接绑主窗口 ViewModel：P0 只有"当前是哪一页"这一件事要说，P1 有真实页面后它即被替换。
+
+    控件外观走 Themes/Controls.axaml 的具名样式（card / badge），本页不再自带一份重复的面板样式；
+    只有本页特有的排版（字号、字重、间距、最大宽度）留在原处。
   -->
   <Panel>
 
     <!-- 命中路由 -->
     <Border IsVisible="{Binding HasRoute}"
+            Classes="card"
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
             MinWidth="360"
             MaxWidth="560"
-            Padding="24"
-            Background="{DynamicResource SurfaceBrush}"
-            BorderBrush="{DynamicResource BorderBrush}"
-            BorderThickness="1"
-            CornerRadius="{DynamicResource CardRadius}">
+            Padding="24">
       <StackPanel Spacing="10">
         <TextBlock Text="{Binding CurrentRoute.Title}"
                    FontSize="22"
@@ -30,15 +30,8 @@
                    TextWrapping="NoWrap"
                    TextTrimming="CharacterEllipsis"
                    Foreground="{DynamicResource FgPrimaryBrush}" />
-        <Border HorizontalAlignment="Left"
-                Padding="8,2"
-                Background="{DynamicResource ElevatedBrush}"
-                BorderBrush="{DynamicResource BorderBrush}"
-                BorderThickness="1"
-                CornerRadius="{DynamicResource BtnRadius}">
-          <TextBlock Text="{Binding DomainBadge}"
-                     FontSize="11"
-                     Foreground="{DynamicResource AccentBrush}" />
+        <Border Classes="badge">
+          <TextBlock Text="{Binding DomainBadge}" />
         </Border>
         <TextBlock Text="{Binding CurrentRoute.Key}"
                    FontSize="12"
