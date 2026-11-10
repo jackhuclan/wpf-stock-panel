@@ -102,6 +102,7 @@ public sealed class FixtureApiClientTests : IDisposable
 
         Assert.Contains("index-quotes.json", ex.Message);
         Assert.Contains(original.Message, ex.Message);
+        Assert.IsType<JsonException>(ex.InnerException);
     }
 
     [Fact]
