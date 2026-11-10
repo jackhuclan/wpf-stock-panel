@@ -137,7 +137,7 @@ E:\wpf-stock-panel\
 ├─ Tsp.slnx
 ├─ .gitignore                       忽略 bin/ obj/ release/ data/ 与含密钥的配置
 ├─ .editorconfig                    自 wpf-float-agent 复制（1:1）
-├─ Directory.Build.props            共享元数据（Product / Version / Authors / License / RepositoryUrl）
+├─ Directory.Build.props            共享元数据（Product / Version / RepositoryUrl / PackageProjectUrl / Description；Authors 与 License 未声明——许可证待所有者决定）
 ├─ Directory.Packages.props         CPM，唯一版本源
 ├─ AGENTS.md                        本项目开发规范
 ├─ README.md
