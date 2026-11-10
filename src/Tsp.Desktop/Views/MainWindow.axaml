@@ -32,9 +32,9 @@
         夹具角标（spec §5.2 的硬要求）：固定在侧栏顶部、紧挨菜单之上，位置显眼到用户不可能忽略"数据是假的"。
         可见性只由 ShowFixtureBadge 决定，而它恒等于客户端的自报身份 ITspApiClient.IsFixtureData——
         由 View 自己猜（按数据形状、按路由）就达不到"无法把夹具当成真行情"这个保证。
-        外观走具名样式 badge；只把文字色改为 WarningBrush：数据来源是警示语义，
-        不是核心/扩展域徽标那套 AccentBrush（AGENTS §7.1 的颜色语义分工）。文字色不算重复定义——
-        badge 给的是"徽标是什么形状"，这里给的是"这一枚徽标警示什么"。
+        外观是具名样式 badge 的警示变体（Classes="badge warning"）：形状、底色、描边、文字色
+        全部在 Themes/Controls.axaml 里定，这里一个颜色都不写——文字色与描边色都由那个修饰类给出
+        （实测两套主题 15.36:1 / 16.12:1，见 task-8-report §9）。
 
         P0 的"固定位置"就是这里。P1 若把角标挪进标题栏或状态栏，动的是本块的位置，不是它的判据。
 
@@ -43,12 +43,10 @@
         实测留 8px 时 19 项就会溢出并冒出滚动条。这几处都是在**使用处**调留白（样式库第 4 条铁律）。
       -->
       <Border Grid.Row="0"
-              Classes="badge"
+              Classes="badge warning"
               IsVisible="{Binding ShowFixtureBadge}"
               Margin="8,2,8,0">
-        <TextBlock Text="夹具数据 · 非真实行情"
-                   FontWeight="SemiBold"
-                   Foreground="{DynamicResource WarningBrush}" />
+        <TextBlock Text="夹具数据 · 非真实行情" FontWeight="SemiBold" />
       </Border>
 
       <!-- 19 页菜单。SelectedItem 两向绑定 SelectedMenuRoute：设置页不在 Menu 内，其选中态必然为空。 -->
@@ -69,15 +67,15 @@
       <!--
         侧栏底部入口。设置与明暗切换并排一行，而不是上下堆叠：底部区块因此保持 Task 6 的高度，
         19 项菜单在默认 1280x800 下仍然全部可见、不出现滚动条（堆叠会多占一行，把菜单顶出滚动条）。
-        两个按钮的外间距写在这里：贴边 8px，两者之间的间隙 0+0=0（样式库不再自带 8px 两边距，
-        否则中间那道缝会变成 16px，与贴边的 8px 对不上）。
+        两个按钮的外间距写在这里：贴边 8px，中间 4+4=8px。样式库不再自带 8px 两边距，否则中间那道缝
+        会变成 16px；而中间若留 0，两个按钮的悬停底色会在 `*,*` 的分界处贴在一起，看着像一个控件。
       -->
       <Grid Grid.Row="2" ColumnDefinitions="*,*">
 
         <!-- 设置页独立于 19 页表格（spec §5.6），由这里单独进入 -->
         <Button Grid.Column="0"
                 Classes="ghost"
-                Margin="8,1,0,4"
+                Margin="8,1,4,4"
                 Content="设置"
                 Command="{Binding NavigateCommand}"
                 CommandParameter="{Binding SettingsRoute}" />
@@ -89,7 +87,7 @@
         -->
         <Button Grid.Column="1"
                 Classes="ghost"
-                Margin="0,1,8,4"
+                Margin="4,1,8,4"
                 Content="切换主题"
                 Click="OnToggleThemeClick" />
 

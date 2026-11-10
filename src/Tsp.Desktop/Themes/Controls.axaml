@@ -20,6 +20,7 @@
       nav-list   MainWindow 侧栏菜单            ghost   MainWindow 侧栏底部按钮
       card       MainWindow 指数条外框、取数失败态卡片、PlaceholderPage 内容卡
       badge      MainWindow 夹具角标、PlaceholderPage 核心/扩展域徽标
+      badge.warning（修饰类，与 badge 同时挂）  MainWindow 夹具角标
       tile       MainWindow 指数条四个小格
       quote-value（含 .up / .down）  MainWindow 指数条的点位与涨跌幅
 
@@ -122,6 +123,19 @@
   <Style Selector="Border.badge TextBlock">
     <Setter Property="FontSize" Value="11" />
     <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+  </Style>
+
+  <!-- 徽标的"警示"变体（Classes="badge warning"）：底仍是 elevated，但描边与语义都换成 warning。
+       文字改用 FgPrimaryBrush 而不是 WarningBrush，是**实测对比度**的选择（task-8-report §9，脚本
+       task-8-shots/contrast.ps1）：warning 文字压在 elevated 底上，亮色主题只有 2.14:1（暗色 6.83:1），
+       而 FgPrimary 压在同一个底上两套主题分别是 15.36:1 / 16.12:1。
+       于是警示语义交给琥珀描边、可读性交给前景色，两者都不让步，且不新增任何令牌。
+       消费者：MainWindow 的夹具角标（spec §5.2 的硬要求，必须看得清）。 -->
+  <Style Selector="Border.badge.warning">
+    <Setter Property="BorderBrush" Value="{DynamicResource WarningBrush}" />
+  </Style>
+  <Style Selector="Border.badge.warning TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource FgPrimaryBrush}" />
   </Style>
 
   <!-- ===== 小面块 =====
