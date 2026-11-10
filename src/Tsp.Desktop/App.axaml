@@ -11,5 +11,7 @@
   </Application.Resources>
   <Application.Styles>
     <FluentTheme />
+    <!-- 控件样式库必须排在 FluentTheme 之后，本项目的具名样式才会盖过主题默认值 -->
+    <StyleInclude Source="avares://Tsp.Desktop/Themes/Controls.axaml" />
   </Application.Styles>
 </Application>

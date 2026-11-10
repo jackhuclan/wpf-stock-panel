@@ -1,0 +1,123 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    控件样式库（spec §5.3 / §5.4）。Task 6 里散落在 MainWindow 的控件样式收敛于此，
+    供 Task 8 与 P1 的页面按名复用；主窗口只保留具名引用，不再自带样式。
+
+    两条铁律：
+    1) 命名按"控件是什么"（侧栏项 / 卡片 / 徽标 / 按钮），不按"用在哪"——否则换个页面就得改名；
+    2) 颜色只引用 Themes/Tokens.axaml 的令牌键，一律 {DynamicResource}。{StaticResource}
+       会在加载时把色值烤死，运行中切换主题就不会跟随（Review Focus 第 4 项）。
+       缓动 SmoothEasing 与主题无关，用 {StaticResource} 取即可。
+
+    本文件由 App.axaml 在 <FluentTheme /> **之后**引入，因此下面的 Setter 覆盖主题默认值。
+  -->
+
+  <!-- ===== 侧栏项 =====
+       ListBoxItem 由 ListBox 在运行时生成，无法在 XAML 里逐个挂 Class，
+       故用 ListBox.nav-list 限定作用域：凡是标了 nav-list 的列表都得到这套侧栏项外观。 -->
+  <Style Selector="ListBox.nav-list">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0,8" />
+    <!-- 关掉横向滚动条：长中文页名才会走 TextTrimming 省略，而不是把侧栏撑宽 -->
+    <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+  </Style>
+  <Style Selector="ListBox.nav-list ListBoxItem">
+    <Setter Property="Padding" Value="10,6" />
+    <Setter Property="Margin" Value="8,1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource BtnRadius}" />
+    <!-- FluentTheme 默认给列表项留了最小高度，会把 19 项菜单撑得很长 -->
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <Style Selector="ListBox.nav-list ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+    <!-- 盖掉 FluentTheme 在 ContentPresenter 上自带的悬停/选中底色 -->
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.15" Easing="{StaticResource SmoothEasing}" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="ListBox.nav-list ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ElevatedBrush}" />
+  </Style>
+  <Style Selector="ListBox.nav-list ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+  </Style>
+  <Style Selector="ListBox.nav-list ListBoxItem TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource FgSecondaryBrush}" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+  <Style Selector="ListBox.nav-list ListBoxItem:selected TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource FgPrimaryBrush}" />
+  </Style>
+
+  <!-- ===== 按钮 =====
+       幽灵按钮：透明底、无边框、圆角 BtnRadius，悬停才升起一层 elevated 面。
+       同样是盖 ContentPresenter 而不是 Button.Background——FluentTheme 的悬停底色加在模板内的
+       ContentPresenter 上，只设 Button 的 Background 会被它压过去。 -->
+  <Style Selector="Button.ghost">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource BtnRadius}" />
+    <Setter Property="Padding" Value="10,7" />
+    <Setter Property="Margin" Value="8,1,8,4" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource FgSecondaryBrush}" />
+  </Style>
+  <Style Selector="Button.ghost:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource FgPrimaryBrush}" />
+  </Style>
+  <Style Selector="Button.ghost /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <!-- 缓动只挂在 Background 上：它在两套主题里都是 Transparent，切主题时不产生变化，
+         因此按钮与其它元素一样是"同帧跟随"，不会出现只有按钮还在渐变的一瞬。 -->
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.15" Easing="{StaticResource SmoothEasing}" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button.ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ElevatedBrush}" />
+  </Style>
+
+  <!-- ===== 卡片 =====
+       层次靠 1px 细边框而非阴影（spec §5.3：暗色下不用阴影）。外边距与内边距留给使用处，
+       因为同一个卡片在不同页面里的留白并不一样。 -->
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource CardRadius}" />
+  </Style>
+
+  <!-- ===== 徽标 =====
+       核心 / 扩展页的域徽标。底与描边抬一层，文字走 AccentBrush。
+       P0 的占位页仍是自带样式的旧写法（不在本任务改动范围内），Task 8 与 P1 的页面直接挂 Classes="badge"。 -->
+  <Style Selector="Border.badge">
+    <Setter Property="Padding" Value="8,2" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Background" Value="{DynamicResource ElevatedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource BtnRadius}" />
+  </Style>
+  <Style Selector="Border.badge TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+  </Style>
+
+  <!-- ===== 小面块 =====
+       嵌在大面里的等分小格（侧栏指数条的四格就是它）。比卡片矮一级：用 elevated 底、不描边。 -->
+  <Style Selector="Border.tile">
+    <Setter Property="Background" Value="{DynamicResource ElevatedBrush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource InputRadius}" />
+    <Setter Property="Padding" Value="6,5" />
+  </Style>
+
+</Styles>

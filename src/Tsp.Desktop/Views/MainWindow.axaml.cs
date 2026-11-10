@@ -1,4 +1,7 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Styling;
 using Tsp.Desktop.ViewModels;
 
 namespace Tsp.Desktop.Views;
@@ -26,5 +29,25 @@ public partial class MainWindow : Window
 
         // 首屏装配：落在菜单第一项并拉一次数据。取数失败在 ViewModel 内转成 ErrorMessage，不外抛。
         viewModel.LoadCommand.Execute(null);
+    }
+
+    /// <summary>
+    /// 明暗主题切换。这是 P0 用来验证"运行中切主题同帧生效"的入口（P1/P2 并入设置页），
+    /// 是纯视图层行为，因此留在 code-behind 而不上 ViewModel——它没有任何可单测的判断。
+    ///
+    /// 只翻应用级的主题变体：所有颜色都经 {DynamicResource} 取令牌，翻完之后
+    /// 侧栏、内容区与 1px 分隔线会在同一次布局里全部重取，不会残留上一主题的色值。
+    /// </summary>
+    private void OnToggleThemeClick(object? sender, RoutedEventArgs e)
+    {
+        // 设计器与 XAML 加载器构造窗口时 Application.Current 可能尚未就绪，安静退出即可。
+        if (Application.Current is not { } application)
+        {
+            return;
+        }
+
+        application.RequestedThemeVariant = application.ActualThemeVariant == ThemeVariant.Dark
+            ? ThemeVariant.Light
+            : ThemeVariant.Dark;
     }
 }

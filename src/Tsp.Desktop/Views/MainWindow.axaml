@@ -14,64 +14,12 @@
         FontFamily="{DynamicResource SansFontFamily}">
 
   <!--
-    主窗口骨架（spec §5.4）：左侧栏（19 页菜单 + 底部设置入口 + 指数条）+ 1px 分隔线 + 内容区。
-    颜色一律走 Themes/Tokens.axaml 的令牌，且必须用 {DynamicResource}——{StaticResource} 会把色值
-    在加载时烤死，运行中切换主题就不会跟随（Review Focus 第 4 项）。
+    主窗口骨架（spec §5.4）：左侧栏（19 页菜单 + 底部设置入口与主题切换 + 指数条）+ 1px 分隔线 + 内容区。
+
+    控件外观一律来自 Themes/Controls.axaml 的具名样式（nav-list / ghost / card / tile），本文件不再自带 <Window.Styles>。
+    颜色只出现在令牌引用里，且必须用 {DynamicResource}——{StaticResource} 会把色值在加载时烤死，
+    运行中切换主题就不会跟随（Review Focus 第 4 项）。
   -->
-  <Window.Styles>
-
-    <!-- 侧栏菜单项 -->
-    <Style Selector="ListBoxItem">
-      <Setter Property="Padding" Value="10,6" />
-      <Setter Property="Margin" Value="8,1" />
-      <Setter Property="CornerRadius" Value="{DynamicResource BtnRadius}" />
-      <Setter Property="MinHeight" Value="0" />
-    </Style>
-    <Style Selector="ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="Transparent" />
-    </Style>
-    <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource ElevatedBrush}" />
-    </Style>
-    <Style Selector="ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-    </Style>
-    <Style Selector="ListBoxItem TextBlock">
-      <Setter Property="Foreground" Value="{DynamicResource FgSecondaryBrush}" />
-      <Setter Property="FontSize" Value="13" />
-    </Style>
-    <Style Selector="ListBoxItem:selected TextBlock">
-      <Setter Property="Foreground" Value="{DynamicResource FgPrimaryBrush}" />
-    </Style>
-
-    <!-- 侧栏底部的设置入口与指数条 -->
-    <Style Selector="Button.nav">
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="CornerRadius" Value="{DynamicResource BtnRadius}" />
-      <Setter Property="Padding" Value="10,7" />
-      <Setter Property="Margin" Value="8,1,8,4" />
-      <Setter Property="HorizontalAlignment" Value="Stretch" />
-      <Setter Property="HorizontalContentAlignment" Value="Left" />
-      <Setter Property="FontSize" Value="13" />
-      <Setter Property="Foreground" Value="{DynamicResource FgSecondaryBrush}" />
-    </Style>
-    <Style Selector="Button.nav:pointerover">
-      <Setter Property="Foreground" Value="{DynamicResource FgPrimaryBrush}" />
-    </Style>
-    <Style Selector="Button.nav /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="Transparent" />
-    </Style>
-    <Style Selector="Button.nav:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="{DynamicResource ElevatedBrush}" />
-    </Style>
-    <Style Selector="Border.index-slot">
-      <Setter Property="Background" Value="{DynamicResource ElevatedBrush}" />
-      <Setter Property="CornerRadius" Value="{DynamicResource InputRadius}" />
-      <Setter Property="Padding" Value="6,5" />
-    </Style>
-
-  </Window.Styles>
 
   <Grid ColumnDefinitions="220,1,*">
 
@@ -80,12 +28,9 @@
 
       <!-- 19 页菜单。SelectedItem 两向绑定 SelectedMenuRoute：设置页不在 Menu 内，其选中态必然为空。 -->
       <ListBox Grid.Row="0"
+               Classes="nav-list"
                ItemsSource="{Binding Menu}"
-               SelectedItem="{Binding SelectedMenuRoute, Mode=TwoWay}"
-               Background="Transparent"
-               BorderThickness="0"
-               Padding="0,8"
-               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+               SelectedItem="{Binding SelectedMenuRoute, Mode=TwoWay}">
         <ListBox.ItemTemplate>
           <DataTemplate DataType="nav:PageRoute">
             <!-- 长中文页名一律省略号收尾，不得把侧栏撑破 -->
@@ -96,44 +41,59 @@
         </ListBox.ItemTemplate>
       </ListBox>
 
-      <!-- 底部设置入口：设置页独立于 19 页表格（spec §5.6），由这里单独进入 -->
-      <Button Grid.Row="1"
-              Classes="nav"
-              Content="设置"
-              Command="{Binding NavigateCommand}"
-              CommandParameter="{Binding SettingsRoute}" />
+      <!--
+        侧栏底部入口。设置与明暗切换并排一行，而不是上下堆叠：底部区块因此保持 Task 6 的高度，
+        19 项菜单在默认 1280x800 下仍然全部可见、不出现滚动条（堆叠会多占一行，把菜单顶出滚动条）。
+      -->
+      <Grid Grid.Row="1" ColumnDefinitions="*,*">
+
+        <!-- 设置页独立于 19 页表格（spec §5.6），由这里单独进入 -->
+        <Button Grid.Column="0"
+                Classes="ghost"
+                Content="设置"
+                Command="{Binding NavigateCommand}"
+                CommandParameter="{Binding SettingsRoute}" />
+
+        <!--
+          明暗切换：本任务用来验证"运行中切主题同帧生效"的入口，不是最终设计。
+          P1/P2 落地真实设置页（数据源 / AI / 页面管理 / 系统设置 …）后应把它并进去，
+          不要在这里和设置页各留一个入口。
+        -->
+        <Button Grid.Column="1"
+                Classes="ghost"
+                Content="切换主题"
+                Click="OnToggleThemeClick" />
+
+      </Grid>
 
       <!--
         侧栏底部指数条：Task 8 把它接到 IndexQuotes 上（名称、点位、涨跌幅，涨用 BullBrush / 跌用 BearBrush）。
         此处先落到产品契约固定的四只核心指数与占位数值，把布局、令牌与等宽字体先钉死。
       -->
       <Border Grid.Row="2"
+              Classes="card"
               Margin="8,2,8,8"
-              Padding="6"
-              Background="{DynamicResource SurfaceBrush}"
-              BorderBrush="{DynamicResource BorderBrush}"
-              BorderThickness="1"
-              CornerRadius="{DynamicResource CardRadius}">
+              Padding="6">
         <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="6" RowSpacing="6">
-          <Border Grid.Row="0" Grid.Column="0" Classes="index-slot">
+          <Border Grid.Row="0" Grid.Column="0" Classes="tile">
             <StackPanel Spacing="2">
               <TextBlock Text="上证指数" FontSize="10" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource FgSecondaryBrush}" />
               <TextBlock Text="—" FontSize="11" FontFamily="{DynamicResource MonoFontFamily}" Foreground="{DynamicResource FgMutedBrush}" />
             </StackPanel>
           </Border>
-          <Border Grid.Row="0" Grid.Column="1" Classes="index-slot">
+          <Border Grid.Row="0" Grid.Column="1" Classes="tile">
             <StackPanel Spacing="2">
               <TextBlock Text="深证成指" FontSize="10" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource FgSecondaryBrush}" />
               <TextBlock Text="—" FontSize="11" FontFamily="{DynamicResource MonoFontFamily}" Foreground="{DynamicResource FgMutedBrush}" />
             </StackPanel>
           </Border>
-          <Border Grid.Row="1" Grid.Column="0" Classes="index-slot">
+          <Border Grid.Row="1" Grid.Column="0" Classes="tile">
             <StackPanel Spacing="2">
               <TextBlock Text="创业板指" FontSize="10" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource FgSecondaryBrush}" />
               <TextBlock Text="—" FontSize="11" FontFamily="{DynamicResource MonoFontFamily}" Foreground="{DynamicResource FgMutedBrush}" />
             </StackPanel>
           </Border>
-          <Border Grid.Row="1" Grid.Column="1" Classes="index-slot">
+          <Border Grid.Row="1" Grid.Column="1" Classes="tile">
             <StackPanel Spacing="2">
               <TextBlock Text="科创综指" FontSize="10" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource FgSecondaryBrush}" />
               <TextBlock Text="—" FontSize="11" FontFamily="{DynamicResource MonoFontFamily}" Foreground="{DynamicResource FgMutedBrush}" />
