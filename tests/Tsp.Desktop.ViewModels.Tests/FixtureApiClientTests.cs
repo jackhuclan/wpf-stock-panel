@@ -190,6 +190,69 @@ public sealed class FixtureApiClientTests : IDisposable
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => sut.GetIndexQuotesAsync(cts.Token));
     }
 
+    // ===== 生产夹具的内容守卫 =====
+    // 上面各条都自己写临时 JSON，因此 src/Tsp.Desktop/Fixtures/*.json 这份**真正上界面**的夹具此前无人守卫。
+    // 它比临时夹具更危险：DTO 对缺字段是宽容的（缺字段取默认值，不抛异常），所以写错一个数字只会静默变成 0，
+    // 界面照常渲染、测试照旧全绿。下面两条是它的内容守卫：夹具一旦被改动，必须在这里显式确认。
+
+    [Fact]
+    public async Task Production_index_quotes_fixture_holds_the_four_frozen_indices()
+    {
+        // 四只核心指数（spec §5.4）的代码、中文名与收盘点位逐只钉住。
+        var sut = new FixtureApiClient(ProductionFixtureDirectory());
+
+        var quotes = await sut.GetIndexQuotesAsync(CancellationToken.None);
+
+        Assert.Equal(
+            new[]
+            {
+                ("000001.SH", "上证指数", 3697.52m),
+                ("399001.SZ", "深证成指", 11534.38m),
+                ("399006.SZ", "创业板指", 2658.23m),
+                ("000680.SH", "科创综指", 1573.83m),
+            },
+            quotes.Select(quote => (quote.Symbol, quote.Name, quote.Close)));
+    }
+
+    [Fact]
+    public async Task Production_watchlist_snapshot_agrees_with_the_daily_bars()
+    {
+        // 夹具是手写的，派生值最容易与原始数据脱节：watchlist.json 里 600519.SH 的 changePct
+        // 曾写 0.31，而它自己的日线最后两个交易日是 1701.50 → 1702.30，即 +0.05%。
+        // 这里把"快照必须等于由日线算出的最新收盘与涨跌幅"钉住，条数无关：新追加交易日不会误伤。
+        var sut = new FixtureApiClient(ProductionFixtureDirectory());
+
+        var bars = await sut.GetDailyBarsAsync("600519.SH", new DateOnly(2020, 1, 1), new DateOnly(2100, 1, 1), CancellationToken.None);
+        var watchlist = await sut.GetWatchlistAsync(CancellationToken.None);
+        var item = Assert.Single(watchlist, entry => entry.Instrument.Symbol == "600519.SH");
+
+        Assert.True(bars.Count >= 2, "600519.SH 的日线不足以算涨跌幅");
+        decimal expectedChangePct = Math.Round((bars[^1].Close / bars[^2].Close - 1m) * 100m, 2);
+
+        Assert.Equal(bars[^1].Close, item.Close);
+        Assert.Equal(expectedChangePct, item.ChangePct);
+    }
+
+    /// <summary>
+    /// 找到仓库内的生产夹具目录 <c>src/Tsp.Desktop/Fixtures</c>：从测试自己的输出目录向上走到仓库根
+    /// （以 <c>Tsp.slnx</c> 为标记），不写死绝对路径，换机器、换检出位置都成立。
+    /// </summary>
+    private static string ProductionFixtureDirectory()
+    {
+        DirectoryInfo? directory = new(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Tsp.slnx")))
+        {
+            directory = directory.Parent;
+        }
+
+        if (directory is null)
+        {
+            throw new InvalidOperationException($"没能从 {AppContext.BaseDirectory} 向上找到仓库根（Tsp.slnx）。");
+        }
+
+        return Path.Combine(directory.FullName, "src", "Tsp.Desktop", "Fixtures");
+    }
+
     private void Write(string relativePath, string json)
     {
         var full = Path.Combine(_dir, relativePath);
