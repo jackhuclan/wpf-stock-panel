@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:charts="clr-namespace:Tsp.Desktop.Charts">
 
   <!--
     控件样式库（spec §5.3 / §5.4）。Task 6 里散落在 MainWindow 的控件样式收敛于此，
@@ -164,6 +165,76 @@
   </Style>
   <Style Selector="TextBlock.quote-value.down">
     <Setter Property="Foreground" Value="{DynamicResource BearBrush}" />
+  </Style>
+
+  <!-- ===== 图表控件（Charts/ 下的自绘控件） =====
+       六个图表共用基座 ChartSurface 的六支通用画笔，这里给每个控件各写一块——
+       **不写成 `charts|ChartSurface` 一条通吃**：Avalonia 的类型选择器是否匹配派生控件
+       是实现细节，而"六个控件各自有哪些画笔"是要能一眼看完的东西；哪一天某个图表要换一支颜色，
+       改它自己那块就行，不会牵动别的图。
+
+       令牌怎么挑的：
+       - 底用 BaseBrush（比卡片那层 Surface 更深一档，浅色主题里亦然）——图表是一块**凹进卡片的
+         信息面板**，层次靠这一点色差加 1px 边框，不用阴影（spec §5.3）；
+       - 轴与网格用 BorderBrush：它们是与边框同一级别的分隔线，不该比边框更抢眼；
+       - 刻度文字用 FgMutedBrush：标签是辅读信息，正式文本色留给页面；
+       - 数据序列用 AccentBrush（主）/ FgMutedBrush（次）——一切"数据序列"的颜色都只取这两支；
+       - **BullBrush / BearBrush 只出现在 KLineChart 那块**（红涨绿跌**只用于价格与 K 线**，
+         不许当通用数据序列色或界面状态色；涨跌家数那类环图要用它，是页面自己的语义决定）。
+
+       消费者：Task 12 的开发用图表页；P1-B / P1-C 的页面直接摆控件即可，不必再写样式。 -->
+  <Style Selector="charts|LineChart">
+    <Setter Property="SurfaceBrush" Value="{DynamicResource BaseBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="AxisBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="LabelBrush" Value="{DynamicResource FgMutedBrush}" />
+    <Setter Property="PrimaryBrush" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="SecondaryBrush" Value="{DynamicResource FgMutedBrush}" />
+  </Style>
+  <Style Selector="charts|BarChart">
+    <Setter Property="SurfaceBrush" Value="{DynamicResource BaseBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="AxisBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="LabelBrush" Value="{DynamicResource FgMutedBrush}" />
+    <Setter Property="PrimaryBrush" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="SecondaryBrush" Value="{DynamicResource FgMutedBrush}" />
+  </Style>
+  <Style Selector="charts|DonutChart">
+    <Setter Property="SurfaceBrush" Value="{DynamicResource BaseBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="AxisBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="LabelBrush" Value="{DynamicResource FgMutedBrush}" />
+    <Setter Property="PrimaryBrush" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="SecondaryBrush" Value="{DynamicResource FgMutedBrush}" />
+  </Style>
+  <Style Selector="charts|RadarChart">
+    <Setter Property="SurfaceBrush" Value="{DynamicResource BaseBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="AxisBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="LabelBrush" Value="{DynamicResource FgMutedBrush}" />
+    <Setter Property="PrimaryBrush" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="SecondaryBrush" Value="{DynamicResource FgMutedBrush}" />
+  </Style>
+  <Style Selector="charts|Heatmap">
+    <Setter Property="SurfaceBrush" Value="{DynamicResource BaseBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="AxisBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="LabelBrush" Value="{DynamicResource FgMutedBrush}" />
+    <Setter Property="PrimaryBrush" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="SecondaryBrush" Value="{DynamicResource FgMutedBrush}" />
+  </Style>
+  <!-- K 线：涨红跌绿。PrimaryBrush 留给均线（本阶段没有均线，指标在 P3），
+       所以它在这里没有消费者，但照样赋值——它现在就是均线将来要取的那支色，
+       等指标接上时不必再回来动样式。 -->
+  <Style Selector="charts|KLineChart">
+    <Setter Property="SurfaceBrush" Value="{DynamicResource BaseBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="AxisBrush" Value="{DynamicResource BorderBrush}" />
+    <Setter Property="LabelBrush" Value="{DynamicResource FgMutedBrush}" />
+    <Setter Property="PrimaryBrush" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="SecondaryBrush" Value="{DynamicResource FgMutedBrush}" />
+    <Setter Property="BullBrush" Value="{DynamicResource BullBrush}" />
+    <Setter Property="BearBrush" Value="{DynamicResource BearBrush}" />
   </Style>
 
 </Styles>

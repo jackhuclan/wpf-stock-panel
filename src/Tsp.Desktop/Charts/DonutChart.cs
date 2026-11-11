@@ -79,10 +79,14 @@ public sealed class DonutChart : ChartSurface
         set => SetValue(ValuesProperty, value);
     }
 
-    /// <summary>分片色，按下标与 <see cref="Values"/> 对齐；比数据短时按取模循环使用。</summary>
+    /// <summary>
+    /// 分片色，按下标与 <see cref="Values"/> 对齐；比数据短时按取模循环使用。
+    /// <c>null</c> 或空表示"用基座那三支"（见 <see cref="SlicePalette"/>）。
+    /// </summary>
     /// <remarks>
-    /// <c>null</c> 或空列表的合法含义是"这一层不画"（与基座对其余画笔的口径一致），
-    /// 整块环图因此不画任何分片，而不是退化成某种默认颜色——配色只在样式库里出现。
+    /// 这里是本控件<b>唯一</b>一处可以追加配色的入口。主题跟随的要求（切主题分片色一起变）
+    /// 落在赋值的那一侧：由样式以 <c>{DynamicResource}</c> 给出时，令牌一变 setter 重算、
+    /// 属性变更、重绘，与其余画笔是同一条链。
     /// </remarks>
     public IReadOnlyList<IBrush>? SliceBrushes
     {
@@ -119,6 +123,63 @@ public sealed class DonutChart : ChartSurface
     /// </remarks>
     protected override bool HasData =>
         Values is { Count: > 0 } values && values.Any(double.IsFinite);
+
+    /// <summary>
+    /// 这次到底用哪几张颜色：<paramref name="sliceBrushes"/> 给了就用它，没给就退回基座那三支。
+    /// </summary>
+    /// <param name="sliceBrushes">页面 / 样式给的分片色，可以为 <c>null</c> 或空。</param>
+    /// <param name="primary">基座的主序列色（<see cref="ChartSurface.PrimaryBrush"/>）。</param>
+    /// <param name="secondary">基座的次序列色（<see cref="ChartSurface.SecondaryBrush"/>）。</param>
+    /// <param name="neutral">基座的中性色（<see cref="ChartSurface.LabelBrush"/>，刻度文字那支）。</param>
+    /// <returns>
+    /// 可用的分片色列表，<b>恒不含 <c>null</c></b>；一个可用色都没有时返回空表（此时整块环图不画分片）。
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <b>为什么要回退。</b>本阶段<b>不新增令牌</b>（计划全局约束），而"一组可循环的多色分片色"
+    /// 要想主题跟随，就必须是一个定义在 <c>Tokens.axaml</c> 里的数组令牌——那样才有一处
+    /// <c>{DynamicResource}</c> 可指。用 XAML 的元素形式在样式里拼一个画刷数组不行：
+    /// 数组项没有可解析的目标，资源会在加载时就被烤死，切主题不会跟随；而那种写法恰好
+    /// <b>绕得过 P0 的令牌守卫</b>（它只认 <c>{DynamicResource 键}</c> 这个标记扩展写法）。
+    /// 所以这一阶段退回基座原有的三支画笔（<c>Primary</c> / <c>Secondary</c> / <c>Label</c>），
+    /// 它们各自都是主题跟随的令牌。
+    /// </para>
+    /// <para>
+    /// <b>代价说清楚：默认只有三种颜色</b>（主序列色、次序列色、一支中性色），分片超过三片就循环。
+    /// 颜色不够多是"不动令牌集"换来的；真要一组五六色的调色板，那是一次<b>新增令牌</b>的决定，
+    /// 属 P1 的配色打磨，不该顺手塞进本阶段。届时改这里，页面上的用法不变。
+    /// </para>
+    /// <para>
+    /// 三支里有一支为 <c>null</c>（样式没给）就跳过它，剩下的照样循环——
+    /// 于是"只给了一支色"的页面得到一块单色环，"一支都没给"才什么都没有。
+    /// </para>
+    /// <para>
+    /// <b>纯函数</b>：只做挑选与拼装，不读控件状态、不抛异常，可以在没有 UI 线程的测试里直接调用。
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<IBrush> SlicePalette(
+        IReadOnlyList<IBrush>? sliceBrushes,
+        IBrush? primary,
+        IBrush? secondary,
+        IBrush? neutral)
+    {
+        if (sliceBrushes is { Count: > 0 })
+        {
+            return sliceBrushes;
+        }
+
+        List<IBrush> palette = [];
+
+        foreach (IBrush? brush in new[] { primary, secondary, neutral })
+        {
+            if (brush is not null)
+            {
+                palette.Add(brush);
+            }
+        }
+
+        return palette;
+    }
 
     /// <summary>
     /// 把各分项的值换算成一段段圆弧的起止角：<b>总量 → 一整圈</b>，<b>分项 → 按占比切出来的弧</b>。
@@ -213,9 +274,10 @@ public sealed class DonutChart : ChartSurface
     /// （什么都看不见，合法但不建议）。这与基座给 <c>PlotPadding</c> 的处置同一口径。
     /// </para>
     /// <para>
-    /// <b>不画分片色的那两种情形</b>：<see cref="SliceBrushes"/> 为 <c>null</c> 或空表时整层不画
-    /// （"<c>null</c> 画笔 = 这一层不画"是基座定下的口径，配色只在样式库里出现）；
-    /// <see cref="ComputeSlices"/> 返回空表时也直接收手。
+    /// <b>颜色来自 <see cref="SlicePalette"/></b>：页面给了 <see cref="SliceBrushes"/> 就用它，
+    /// 没给就退回基座那三支（主 / 次 / 中性）。三支全空时整块环图不画分片——
+    /// 那才是"这一层不画"，理由是配色只在样式库里出现。
+    /// <see cref="ComputeSlices"/> 返回空表时同样直接收手。
     /// </para>
     /// <para>
     /// <b>跨度不大于 0 的分片跳过</b>：值为 0 或负的分项本来就占 0 角度，画出来是一条零面积的
@@ -225,14 +287,14 @@ public sealed class DonutChart : ChartSurface
     protected override void RenderChart(DrawingContext context, Rect plotArea)
     {
         IReadOnlyList<double>? values = Values;
-        IReadOnlyList<IBrush>? brushes = SliceBrushes;
+        IReadOnlyList<IBrush> palette = SlicePalette(SliceBrushes, PrimaryBrush, SecondaryBrush, LabelBrush);
 
         // 三条收手理由，性质不同：
         //  - values 为 null 是给类型系统看的（基座已经在 HasData 里短路了空数据，这里跑不到），
         //    但它是 ComputeSlices 的必要条件——它的入参不可空；
-        //  - 分片色为空是"这一层不画"（基座对画笔的既有口径）；
+        //  - 一个可用色都没有是"这一层不画"（配色只在样式库里出现）；
         //  - 尺寸为 0 表示"这块地方画不出来"，这是渲染方的政策决定。
-        if (values is null || brushes is null || brushes.Count == 0
+        if (values is null || palette.Count == 0
             || plotArea.Width <= 0d || plotArea.Height <= 0d)
         {
             return;
@@ -268,10 +330,10 @@ public sealed class DonutChart : ChartSurface
                 continue;
             }
 
-            // 分片色按下标取，比数据短时取模循环：保证同一个分项的颜色只由它的下标决定，
-            // 不随别项的取值变化。
+            // 分片色按下标取，比色数少时取模循环：保证同一个分项的颜色只由它的下标决定，
+            // 不随别项的取值变化（也正因如此，非正值仍然要占自己的下标，见 ComputeSlices）。
             context.DrawGeometry(
-                brushes[i % brushes.Count],
+                palette[i % palette.Count],
                 null,
                 BuildSlice(start, sweep, centreX, centreY, outerRadius, innerRadius));
         }

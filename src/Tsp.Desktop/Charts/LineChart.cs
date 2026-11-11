@@ -44,7 +44,7 @@ public sealed class LineChart : ChartSurface
     /// <summary>折线宽度。数据线<b>不做</b>像素对齐——见 <see cref="RenderChart"/> 的备注。</summary>
     private const double LineStrokeThickness = 1.5d;
 
-    /// <summary>面积填充的不透明度。底色画笔往往与控件底色相近，不透明填上去会把网格线整片盖掉。</summary>
+    /// <summary>面积填充的不透明度。填充与折线<b>共用同一支画笔</b>，全靠这一层薄让它俩分得开。</summary>
     private const double AreaFillOpacity = 0.25d;
 
     /// <summary>折线的数据点（按时间顺序）与值域的计算依据。</summary>
@@ -73,7 +73,10 @@ public sealed class LineChart : ChartSurface
         set => SetValue(ValuesProperty, value);
     }
 
-    /// <summary>是否在折线下方填一层面积，默认 <c>false</c>。填充用 <see cref="ChartSurface.SurfaceBrush"/>；它为 <c>null</c> 时整层不画。</summary>
+    /// <summary>
+    /// 是否在折线下方填一层面积，默认 <c>false</c>。填充用 <see cref="ChartSurface.PrimaryBrush"/>
+    /// （与折线同色、只淡一层，见 <see cref="AreaFillOpacity"/>）；它为 <c>null</c> 时整层不画。
+    /// </summary>
     public bool FillArea
     {
         get => GetValue(FillAreaProperty);
@@ -154,10 +157,15 @@ public sealed class LineChart : ChartSurface
             return;
         }
 
-        if (FillArea && SurfaceBrush is { } fillBrush)
+        if (FillArea && PrimaryBrush is { } fillBrush)
         {
-            // 用 PushOpacity 而不是另造一支半透明画刷：画笔的身份保持原样（主题令牌换成什么颜色
-            // 这里都不用知道），"这一层更淡"是渲染层的状态，不是又一支画笔。
+            // 填充与折线**共用 PrimaryBrush**，只靠 PushOpacity 淡一层——不另造一支半透明画刷：
+            // 画笔的身份保持原样（主题令牌换成什么颜色这里都不用知道），"这一层更淡"是渲染层的状态。
+            //
+            // **这里原本用的是 SurfaceBrush，那是个错**：SurfaceBrush 就是本控件的面板底色
+            // （ChartSurface.Render 拿它铺满整块控件），把同一个颜色以 25% 压在自己身上，
+            // 混出来还是那个颜色——填了等于没填，而 FillArea 看起来"生效了"却什么都没有发生。
+            // 与折线同色才是面积填充的常态：线是这条序列的轮廓，面积是它的量。
             using (context.PushOpacity(AreaFillOpacity))
             {
                 context.DrawGeometry(fillBrush, null, BuildAreaGeometry(points, plotArea));

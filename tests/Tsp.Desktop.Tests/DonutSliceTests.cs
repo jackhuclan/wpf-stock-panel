@@ -168,6 +168,40 @@ public sealed class DonutSliceTests
     }
 
     [Fact]
+    public void SlicePalette_prefers_the_page_supplied_brushes()
+    {
+        // 页面 / 样式给了分片色就用它，一支都不动、也不与基座那三支混在一起——
+        // 混起来会让"我给了五个颜色，画出来却有八个"这种事变得没法解释。
+        // （下面这几支 Brushes.* 是**测试用的身份标记**，不是配色：本仓库"配色只在样式库里出现"
+        // 那条纪律管的是图表源码，而这里只是要三个可区分的对象来验证挑选与顺序。）
+        IReadOnlyList<IBrush> supplied = [Brushes.Black, Brushes.White];
+
+        IReadOnlyList<IBrush> palette = DonutChart.SlicePalette(supplied, Brushes.Gray, Brushes.Gray, Brushes.Gray);
+
+        Assert.Equal(supplied, palette);
+    }
+
+    [Fact]
+    public void SlicePalette_falls_back_to_the_three_base_brushes_in_order()
+    {
+        // 没给分片色时退回基座那三支（主序列色 / 次序列色 / 中性色），顺序固定——
+        // 顺序变了，同一份数据的分片颜色会整体轮换，而画面看着依然"是个环"。
+        IReadOnlyList<IBrush> palette = DonutChart.SlicePalette(null, Brushes.Black, Brushes.White, Brushes.Gray);
+
+        Assert.Equal<IReadOnlyList<IBrush>>([Brushes.Black, Brushes.White, Brushes.Gray], palette);
+    }
+
+    [Fact]
+    public void SlicePalette_skips_missing_base_brushes_and_goes_empty_when_nothing_is_left()
+    {
+        // 样式没给的那几支是 null，跳过它们、剩下的照样用：只给了一支色的页面得到一块单色环。
+        // 三支全空才是"这一层不画"——那时返回空表，环图的渲染方据此收手。
+        Assert.Equal<IReadOnlyList<IBrush>>([Brushes.White], DonutChart.SlicePalette(null, null, Brushes.White, null));
+        Assert.Empty(DonutChart.SlicePalette(null, null, null, null));
+        Assert.Empty(DonutChart.SlicePalette([], null, null, null));
+    }
+
+    [Fact]
     public void DonutChart_has_data_only_when_at_least_one_value_is_finite()
     {
         // HasData 是基座用来做"空数据短路"的钩子：为 false 时底色、边框一概不画。
