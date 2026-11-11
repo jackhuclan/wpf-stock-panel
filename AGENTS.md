@@ -50,7 +50,7 @@ Tsp.slnx
 ## 3. 版本与工程元数据（Directory.Build.props）
 
 - `<Version>` 是**唯一版本源**，同时作用于 AssemblyVersion / FileVersion / NuGet 包版本；发布升级只改这一处；
-- 当前版本 **0.1.0**，语义化版本：修 bug → 补丁位 +1；新功能 → 次版本 +1；破坏性变更 → 主版本 +1；
+- 当前版本 **0.1.1**，语义化版本：修 bug / 元数据与文档改动 → 补丁位 +1；新功能 → 次版本 +1；破坏性变更 → 主版本 +1；
 - `Deterministic=true`、`IncludeSourceRevisionInInformationalVersion=true`（文件属性可见 git 提交号）、`GenerateDocumentationFile=false`，不要随意改动；
 - `Product`、`Description`、`RepositoryUrl` / `PackageProjectUrl` 集中在此维护，**csproj 内不得重复定义**这些全局属性；
 - `tests/Tsp.Contracts.Tests/BaselineTest.cs` 钉住了版本从本文件传导到程序集这条链路——改 `<Version>` 时它会失败，这是**预期行为**，同步更新断言即可。
@@ -195,7 +195,7 @@ dotnet run --project src/Tsp.Desktop   # 本地调试运行（P0 Task 6 起可�
 
 - **中文 Conventional Commits**：`feat(scope): …` / `fix(scope): …` / `refactor(scope): …` /
   `test(scope): …` / `style(scope): …` / `chore(scope): …` / `docs: …`；
-- **涉及代码改动的提交**在描述末尾带版本尾注 `（0.1.0）`，与 `Directory.Build.props` 的 `<Version>` 一致；
+- **涉及代码改动的提交**在描述末尾带版本尾注 `（0.1.1）`，与 `Directory.Build.props` 的 `<Version>` 一致；
 - scope 常用值：`scaffold` / `contracts` / `nav` / `ui` / `data` 等；
 - **每个功能/修复单独成提交**；文档与对应代码改动同批提交；
   纯文档改动用 `docs: …`，**版本尾注可带可不带**——带上便于与代码提交对齐版本，不带也让 `docs: …` 一眼可辨；
@@ -210,12 +210,14 @@ dotnet run --project src/Tsp.Desktop   # 本地调试运行（P0 Task 6 起可�
   仓库只提供 `*.example.json` 模板；
 - `docs/` 是仓库内容，**不得**被忽略。
 
-### 10.3 发版流程
+### 10.3 版本与提交（**每次改动都升版**）
 
-1. 升 `Directory.Build.props` 的 `<Version>`（修 bug → 补丁位，新功能 → 次版本）；
+**不是只有发版才升版——每一次改动都升。** 一个功能、一个修复、一次元数据或文档改动，各自都是一个新的补丁/次版本号。
+
+1. 升 `Directory.Build.props` 的 `<Version>`（修 bug / 元数据与文档 → 补丁位；新功能 → 次版本；破坏性变更 → 主版本）；
 2. 同步 `BaselineTest` 的版本断言（它钉的就是 `<Version>` 的传导）；
-3. 同步文档：`README.md`（功能与更新记录）、spec 的版本历史；
-4. 同一批提交包含代码 + 文档，提交信息带版本尾注。
+3. 同步文档：`README.md` 的「当前版本」行，以及 `AGENTS.md` 第 5 节的「当前版本」；
+4. 同一批提交包含代码 + 文档，提交信息带版本尾注，且尾注**必须等于本次新的 `<Version>`**。
 
 ---
 
