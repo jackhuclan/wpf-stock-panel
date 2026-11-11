@@ -7,7 +7,7 @@
   <PropertyGroup>
 
     <!-- 版本：语义化版本，同时作为 AssemblyVersion / FileVersion / NuGet 包版本 -->
-    <Version>0.2.3</Version>
+    <Version>0.2.4</Version>
 
     <!-- 产品与描述。
          描述必须是**单行**：这个值会原样流入 AssemblyDescriptionAttribute 与
