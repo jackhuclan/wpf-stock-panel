@@ -407,7 +407,8 @@ Expected: 通过，且它扫描到的 `{DynamicResource}` 计数**因本任务�
 **本任务是本阶段验收的落点**，分两层：先建**无头渲染测试宿主**把"切主题重绘"变成可自动验的像素比对，再用开发页在真机上确认六图观感。原计划只有后者（纯手工），那意味着本阶段的核心验收标准**永不受 CI 保护**——这不是这个项目该接受的状态。
 
 **Files:**
-- Modify: `tests/Tsp.Desktop.Tests/Tsp.Desktop.Tests.csproj`（加 `Avalonia.Headless` + `Avalonia.Skia`，**只写 `Include`**）
+- Modify: `Directory.Packages.props`（**必须先在这里登记** `Avalonia.Headless` 与 `Avalonia.Skia` 的版本——CPM 下 csproj 里裸写 `PackageReference Include` 会以 **NU1010** 失败）
+- Modify: `tests/Tsp.Desktop.Tests/Tsp.Desktop.Tests.csproj`（加上面两个包，**只写 `Include`、不写 `Version`**）
 - Create: `tests/Tsp.Desktop.Tests/Charts/HeadlessRenderHarness.cs`（会话/宿主搭建，供各控件渲染测试复用）
 - Create: `tests/Tsp.Desktop.Tests/Charts/ChartRenderTests.cs`
 - Create: `src/Tsp.Desktop/Views/DevChartsPage.axaml`
