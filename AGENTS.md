@@ -50,7 +50,7 @@ Tsp.slnx
 ## 3. 版本与工程元数据（Directory.Build.props）
 
 - `<Version>` 是**唯一版本源**，同时作用于 AssemblyVersion / FileVersion / NuGet 包版本；发布升级只改这一处；
-- 当前版本 **0.2.24**，语义化版本，**分档**：每次改动（含**子计划**收口）→ 补丁位 +1；**阶段性计划**收口（P0/P1/P2…）→ 次版本 +1、补丁位归零；破坏性变更 → 主版本 +1；
+- 当前版本 **0.2.25**，语义化版本，**分档**：每次改动（含**子计划**收口）→ 补丁位 +1；**阶段性计划**收口（P0/P1/P2…）→ 次版本 +1、补丁位归零；破坏性变更 → 主版本 +1；
 - `Deterministic=true`、`IncludeSourceRevisionInInformationalVersion=true`（文件属性可见 git 提交号）、`GenerateDocumentationFile=false`，不要随意改动；
 - `Product`、`Description`、`RepositoryUrl` / `PackageProjectUrl` 集中在此维护，**csproj 内不得重复定义**这些全局属性；
 - `tests/Tsp.Contracts.Tests/BaselineTest.cs` 钉住了版本从本文件传导到程序集这条链路——改 `<Version>` 时它会失败，这是**预期行为**，同步更新断言即可。
@@ -195,7 +195,7 @@ dotnet run --project src/Tsp.Desktop   # 本地调试运行（P0 Task 6 起可�
 
 - **中文 Conventional Commits**：`feat(scope): …` / `fix(scope): …` / `refactor(scope): …` /
   `test(scope): …` / `style(scope): …` / `chore(scope): …` / `docs: …`；
-- **涉及代码改动的提交**在描述末尾带版本尾注 `（0.2.24）`，与 `Directory.Build.props` 的 `<Version>` 一致；
+- **涉及代码改动的提交**在描述末尾带版本尾注 `（0.2.25）`，与 `Directory.Build.props` 的 `<Version>` 一致；
 - scope 常用值：`scaffold` / `contracts` / `nav` / `ui` / `data` 等；
 - **每个功能/修复单独成提交**；文档与对应代码改动同批提交；
   纯文档改动用 `docs: …`，**版本尾注可带可不带**——带上便于与代码提交对齐版本，不带也让 `docs: …` 一眼可辨；
