@@ -133,4 +133,6 @@ Tsp.slnx
 
 ## 许可证
 
-**尚未选定**。本仓库目前不带 `LICENSE` 文件——选哪个许可证由仓库所有者决定，尚未作出。
+[MIT](LICENSE) —— Copyright (c) 2026 jackhuclan。
+
+复刻对象 TSP 亦为 MIT 许可；本仓库与其不共享代码，仅作同许可下的独立实现。
