@@ -19,17 +19,23 @@ namespace Tsp.Desktop.Charts;
 /// <c>null</c>，控件必须照样正常渲染。本文件<b>不给任何画笔赋字面色值</b>——配色只在样式库里出现。
 /// </para>
 /// <para>
-/// <b>能测的部分全被推进了 <see cref="BuildPoints"/>。</b>仓库的测试栈不含 Avalonia Headless，
+/// <b>能测的部分全被推进了纯静态函数。</b>仓库的测试栈不含 Avalonia Headless，
 /// <c>DrawingContext</c> 不可构造，<c>RenderChart</c> 里画的每一笔在自动化里都断言不了——
-/// 于是映射链（下标 → x、值 → y、跳过不可绘制的点）整条放进纯静态函数，由
-/// <c>LineChartPathTests</c> 直接调用；<c>RenderChart</c> 只剩「取窗口、把这些点交给几何、
-/// 按画笔是否为 <c>null</c> 决定画不画」这几步，没有一处映射算术。
-/// Task 7–10 的柱 / 环 / 雷达 / 热力图沿用这个形状：能推进纯函数的全推进去。
+/// 于是整条链都搬进了三个纯函数：<see cref="ComputeWindow"/>（数据 → 可画窗口 + 刻度）、
+/// <see cref="BuildPoints"/>（下标 → x、值 → y、跳过不可绘制的点）、
+/// <see cref="GridLineYs"/>（刻度 → 网格行号 + 像素对齐），全部由 <c>LineChartPathTests</c> 直接调用。
+/// <c>RenderChart</c> 只剩「取哪个值、按画笔是否为 <c>null</c> 决定画不画、按什么顺序画」，
+/// <b>没有一处映射算术</b>。
+/// Task 7–10 的柱 / 环 / 雷达 / 热力图沿用这个形状：能推进纯函数的全推进去——
+/// 连"框"（窗口、网格行号）也别留在渲染路径里，那是每个图表都要重写一遍的同一份算术。
 /// </para>
 /// </remarks>
 public sealed class LineChart : ChartSurface
 {
-    /// <summary>网格线的目标条数。交给 <see cref="AxisTicks.Nice"/> 的"大致想要几条"，实际条数会在它附近浮动。</summary>
+    /// <summary>
+    /// 网格线的目标条数。取 4：<see cref="AxisTicks.Nice"/> 只保证"大致想要几条"（实际条数会在目标值附近浮动，
+    /// 向外取整还会两端各多一格），4 落在 3–6 条这个区间里——在几十像素高的绘图区里读得清，也不至于挤成一团。
+    /// </summary>
     private const int GridLineTargetCount = 4;
 
     /// <summary>网格线宽度（逻辑像素）。整数宽度才走得出 <see cref="PixelAlign.SnapStroke"/> 的奇偶规则。</summary>
@@ -75,15 +81,24 @@ public sealed class LineChart : ChartSurface
     }
 
     /// <summary>
-    /// 本控件有没有可画的点：序列非空即可。
+    /// 本控件有没有可画的点：序列里**至少要有一个有限值**。
     /// </summary>
     /// <remarks>
+    /// <para>
     /// 空序列时基座会整块收手（底色、边框、网格线一概不画）——没有数据却画出一套网格，
-    /// 比什么都不画更容易被误读成"数据全是 0"。
-    /// 注意<b>全是非有限值</b>的序列在这里算"有数据"（长度非零），于是会画出一套网格而没有折线：
-    /// 这是刻意的，序列在预热期的确存在、只是还没值，画出时间轴比画成空白更如实。
+    /// 比什么都不画更容易被误读成"数据全是 0"（<see cref="ChartSurface.HasData"/> 的文档原话）。
+    /// <b>判据不能只看"长度非零"</b>：整条序列全是非有限值（指标预热期就是一个自成段的 <c>NaN</c> 前缀）
+    /// 时，<see cref="ValueRange.From"/> 会拿它兜底的 <c>(0, 1)</c> 窗口去撑起一套网格线——
+    /// 一个与序列毫无关系的刻度。今天没露馅只因为本控件还不画刻度文字；一旦有了标签，那根轴就是假的。
+    /// </para>
+    /// <para>
+    /// 所以这里与 <see cref="BuildPoints"/> 的跳过判据保持一致：**非有限 = 没有值**。
+    /// 一个有限值就足够画出一根有意义的轴（其余点跳过即可），这也是 Tasks 7–10 的统一答案
+    /// （计划已把它写进全局约束）。代价是每帧一次 O(n) 扫描，相对于每帧重建刻度列表的开销可以忽略。
+    /// </para>
     /// </remarks>
-    protected override bool HasData => Values is { Count: > 0 };
+    protected override bool HasData =>
+        Values is { Count: > 0 } values && values.Any(double.IsFinite);
 
     /// <summary>
     /// 画框里的东西：网格线 → 面积填充 → 折线。
@@ -92,15 +107,19 @@ public sealed class LineChart : ChartSurface
     /// <param name="plotArea">已扣除内边距的绘图矩形，尺寸可能为 0。</param>
     /// <remarks>
     /// <para>
-    /// <b>可画窗口由整齐刻度定出</b>，而不是直接拿数据的极值：<see cref="AxisTicks.Nice"/> 的首尾刻度
-    /// 覆盖数据极值又落在整齐值上，于是网格线落在 1 / 2 / 5 × 10ⁿ 这类读数舒服的位置，
-    /// 曲线也不会紧贴在框边上。窗口同时是折线的值域——两者<b>必须是同一个</b>，
-    /// 否则网格线与曲线各说各话。
+    /// <b>可画窗口由整齐刻度定出</b>（<see cref="ComputeWindow"/>），而不是直接拿数据的极值：
+    /// <see cref="AxisTicks.Nice"/> 的首尾刻度覆盖数据极值又落在整齐值上，于是网格线落在
+    /// 1 / 2 / 5 × 10ⁿ 这类读数舒服的位置，曲线也不会紧贴在框边上。
+    /// 窗口同时是折线的值域——两者<b>必须是同一个</b>，否则网格线与曲线各说各话：
+    /// 这里把同一个 <c>window</c> 交给 <see cref="GridLineYs"/> 与 <see cref="BuildPoints"/>。
+    /// <b>本方法里没有任何映射算术</b>（窗口、网格行号、折线点全部来自上面这两个纯函数与
+    /// <see cref="BuildPoints"/>），留在这里的只有"取哪个值、画不画、按什么顺序画"。
     /// </para>
     /// <para>
-    /// <b>像素对齐只用在网格线上，绝不用在数据点上。</b>网格线的"落哪一行"是纯粹的呈现选择，
-    /// 推半个像素能让 1px 的线在 100% 缩放下变锐；而数据点的坐标是<b>它自己的值</b>，
-    /// 挪半个像素就是对数值撒谎。两处目标不同，别把这条规则推广到折线上。
+    /// <b>像素对齐只用在网格线上，绝不用在数据点上。</b>网格线"落在哪一行"是纯粹的呈现选择，
+    /// 把它对齐到像素网格能让 1px 的线在 100% 缩放下变锐（两步：行号先取整、再按笔画奇偶推半格，
+    /// 见 <see cref="GridLineYs"/>）；而数据点的坐标是<b>它自己的值</b>，挪半个像素就是对数值撒谎。
+    /// 两处目标不同，别把这条规则推广到折线上。
     /// </para>
     /// <para>
     /// <b>绘制顺序是"网格 → 面积 → 折线"</b>：面积是半透明的（<see cref="AreaFillOpacity"/>），
@@ -124,11 +143,9 @@ public sealed class LineChart : ChartSurface
             return;
         }
 
-        ValueRange dataRange = ValueRange.From(values);
-        IReadOnlyList<double> ticks = AxisTicks.Nice(dataRange.Min, dataRange.Max, GridLineTargetCount);
-        ValueRange window = new(ticks[0], ticks[^1]);
+        (ValueRange window, IReadOnlyList<double> ticks) = ComputeWindow(values, GridLineTargetCount);
 
-        DrawGridLines(context, ticks, window, plotArea);
+        DrawGridLines(context, GridLineYs(ticks, window, plotArea), plotArea);
 
         IReadOnlyList<Point> points = BuildPoints(values, window, plotArea);
 
@@ -160,8 +177,12 @@ public sealed class LineChart : ChartSurface
     /// <param name="range">纵坐标对应的值域，通常是网格线首尾刻度定出的可画窗口。</param>
     /// <param name="plotArea">绘图矩形（控件局部坐标）。宽度为 0 时所有点落在同一条竖线上，本函数照算不误。</param>
     /// <returns>
-    /// 可绘制的点，<b>按原下标顺序</b>排列，个数可以少于 <paramref name="values"/> 的长度
-    /// （被跳过的那些不占位），坐标全部有限。任何输入都不抛异常、不返回非有限坐标。
+    /// 可绘制的点，<b>按原下标顺序</b>排列，个数可以少于 <paramref name="values"/> 的长度（被跳过的那些不占位）。
+    /// <b>只要绘图区坐标有限</b>（<see cref="ChartSurface.PlotArea"/> 保证如此），返回的坐标就全部有限：
+    /// y 由非有限判定筛过，x 由有限的绘图区与下标算出。
+    /// <b>本函数不校验 <paramref name="plotArea"/> 本身</b>——它的 <c>X</c> / <c>Width</c> 是坏值时，
+    /// 坏值会原样进到 x 里；给一个可画的矩形是调用方的事（基座的 <c>PlotArea</c> 已经把内边距与尺寸夹干净）。
+    /// 任何输入都不抛异常。
     /// </returns>
     /// <remarks>
     /// <para>
@@ -185,14 +206,25 @@ public sealed class LineChart : ChartSurface
     /// </para>
     /// <para>
     /// <b>段语义：跨过缺口，不断开（jump，not break）。</b>返回值是一个有序点列，渲染方照着连一条折线，
-    /// 于是被跳过的下标两侧的邻点之间<b>会连出一条直段</b>。选它而不是"断开"的两条理由：
-    /// 一是真实场景里被跳过的那一段是<b>前缀</b>（指标预热期），前缀没有可连的左邻点，
-    /// 两种画法渲染出来完全一样，差别只在序列中段的空洞上；
-    /// 二是"断开"需要把返回值变成"若干连续段"（<c>IReadOnlyList&lt;IReadOnlyList&lt;Point&gt;&gt;</c> 之类）
-    /// 才能表达段边界，而本阶段给折线图定的返回类型是一层平铺的点列——为一种病态输入
-    /// 把接口升成两层结构，Tasks 7–10 都要跟着抄。
-    /// 代价要说清楚：中段有空洞时，被跳过的那段时间里会画出一条连接两侧已知点的直段，
-    /// 而那段区间实际上没有数据。若将来指标真的会出现成段中空，这里要改成按段返回。
+    /// 于是被跳过的下标两侧的邻点之间<b>会连出一条直段</b>。选 jump 的两条理由，都是关于这份返回值的实话：
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description><b>我们手上的缺口本来就是前缀。</b>指标预热期的 <c>NaN</c> 自成一段、落在序列开头，
+    /// 它没有可连的左邻点——jump 与 break 在这种数据上渲染结果完全一样。两者的差别只在序列中段的空洞上。</description></item>
+    /// <item><description><b>这一层平铺的点列不自述"洞"。</b>存活点不带自己的下标，返回值里也没有原序列长度，
+    /// 调用方光看点列分不出"这里原来缺一个点"还是"这里本来就两点相邻"（x 是按原下标算的，
+    /// 拿得到原长度的人<b>能</b>反推出来，但那是他自己补的推断，不是这份契约给的信息）。
+    /// 想让"断开"成为契约的一部分，要改的就是这个签名——所以这不是个以后加个分支就能补上的实现细节，
+    /// 而是本决定的<b>真正分量</b>所在。</description></item>
+    /// </list>
+    /// <para>
+    /// <b>代价要说清楚：这是对通行做法的一次刻意偏离。</b>序列中段出现空洞时，那段时间里会画出一条
+    /// 连接两侧已知点的直段，而该区间实际上<b>没有数据</b>——而中段空洞在 A 股数据里并不病态
+    /// （停牌、缺一根 bar、滚动窗口有一段还没预热完，都是家常便饭）。
+    /// 读折线图的人默认那里应当<b>断开</b>：matplotlib 遇到 <c>NaN</c> 就断、ECharts 默认
+    /// <c>connectNulls: false</c>、TradingView 也是断的。本控件跳过去，是因为今天手上的缺口只以前缀形式出现；
+    /// <b>K 线控件（唯一同样有"一段没值"的图表）开工前必须把这个决定重新过一遍</b>——
+    /// 要断就得连签名一起改，不能等画出来才发现多了一条假线。
     /// </para>
     /// <para>
     /// <b>单点画在水平正中。</b><c>count == 1</c> 时 <c>i / (count - 1)</c> 是 <c>0 / 0 = NaN</c>，
@@ -239,25 +271,117 @@ public sealed class LineChart : ChartSurface
     }
 
     /// <summary>
-    /// 在每个刻度处画一条横贯绘图区的网格线。
+    /// 由数据定出<b>可画的纵轴窗口</b>，以及定义这个窗口的刻度值。
     /// </summary>
-    /// <param name="context">绘制上下文。</param>
-    /// <param name="ticks">刻度值，由 <see cref="AxisTicks.Nice"/> 产出。</param>
-    /// <param name="window">这些刻度首尾定出的值域（与折线用的是同一个）。</param>
-    /// <param name="plotArea">绘图矩形。</param>
+    /// <param name="values">数据序列；非有限值不参与值域（<see cref="ValueRange.From"/> 自己滤掉）。</param>
+    /// <param name="targetCount">期望的刻度条数，会被 <see cref="AxisTicks.Nice"/> 收敛；实际条数可以与之不同。</param>
+    /// <returns>
+    /// 窗口是<b>首尾刻度本身</b>，刻度至少两条、严格递增、全部有限，窗口有限且非退化，并覆盖全部有限数据值
+    /// （唯一的例外见备注：量级逼近 <c>double.MaxValue</c> 的退化序列会退回固定窗口，那时不覆盖数据）。
+    /// </returns>
     /// <remarks>
     /// <para>
-    /// <b>只有 y 过 <see cref="PixelAlign.SnapStroke"/>。</b>横线"落在哪一行"由 y 决定，
-    /// 1px 宽的线以整数 y 为中线时正好骑在相邻两行设备像素的交界上，抗锯齿会把它涂成 2px 的糊边；
-    /// 推半格后它铺满整数行，100% 缩放下是锐的（其它缩放比下只能减轻模糊，见该函数的备注）。
-    /// 两端<b>不</b>对齐：对齐会把线两端各推出半个像素、越过绘图区边缘，那是另一种错。
+    /// <b>窗口与刻度要一起产出，不能各算一次。</b>网格线按刻度落行、折线按窗口落点，
+    /// 两处若各算一遍，迟早会漂移（折线用数据极值、网格用整齐刻度），那时曲线贴着框边而网格不在框上，
+    /// 且没有任何报错。这里把"窗口就是首尾刻度"做成一个不变量：调用方拿到的两样东西天然自洽。
     /// </para>
     /// <para>
-    /// 网格线首尾两条正好落在绘图区的上下边缘上（窗口就是由首尾刻度定出来的），
-    /// 于是绘图区自带一圈淡淡的框，与基座画的控件边框区分得开。
+    /// <b>任何输入都不抛异常、不返回毒值</b>：空序列、单点、全等值、全是非有限值、量级极端到撑不开，
+    /// 一律由 <see cref="ValueRange.From"/> 与 <see cref="AxisTicks.Nice"/> 兜成一个可画窗口
+    /// （空序列与全非有限值得到的是它们各自的兜底窗口 <c>(0, 1)</c>——一个确定的、可画的窗口，
+    /// 不是毒值）。它跑在 <c>Render()</c> 路径上，那里抛异常或给出零跨度窗口都是一整窗白屏。
+    /// </para>
+    /// <para>
+    /// <b>"覆盖数据"有一个例外，明说</b>：值全是同一个数、且量级逼近 <c>double.MaxValue</c> 时，
+    /// 向外撑开的窗口会溢出成 <c>±Infinity</c>，<see cref="AxisTicks.Nice"/> 于是退回固定的
+    /// <c>(0, 1)</c>——窗口仍然可画（有限、非退化），但<b>不覆盖数据</b>。这是 Task 2 已经写明的让步，
+    /// 不在本控件手里；现实中到不了（价格或指标 <c>|值| ≈ 1.8e308</c> 是无意义的脏数据），
+    /// 但"窗口覆盖数据"这条不变量别当成无条件成立。
+    /// </para>
+    /// <para>
+    /// <b>纯函数</b>：不读控件状态、不碰绘制栈，在没有 UI 线程的测试里可直接调用。
     /// </para>
     /// </remarks>
-    private void DrawGridLines(DrawingContext context, IReadOnlyList<double> ticks, ValueRange window, Rect plotArea)
+    public static (ValueRange Window, IReadOnlyList<double> Ticks) ComputeWindow(IReadOnlyList<double> values, int targetCount)
+    {
+        ValueRange dataRange = ValueRange.From(values);
+        IReadOnlyList<double> ticks = AxisTicks.Nice(dataRange.Min, dataRange.Max, targetCount);
+
+        return (new ValueRange(ticks[0], ticks[^1]), ticks);
+    }
+
+    /// <summary>
+    /// 把刻度值换算成网格线的<b>行号</b>（屏幕 y），并做像素对齐。
+    /// </summary>
+    /// <param name="ticks">刻度值，来自 <see cref="ComputeWindow"/>。</param>
+    /// <param name="window">与折线共用的值域，<b>必须是同一份</b>（<see cref="ComputeWindow"/> 给的那个）。</param>
+    /// <param name="plotArea">绘图矩形。</param>
+    /// <returns>
+    /// 每个刻度一行，顺序与 <paramref name="ticks"/> 一致（刻度递增 ⇒ 行号递减，屏幕 y 向下）；
+    /// 行号是<b>整数 + 0.5</b>（1px 笔画），即在 100% 缩放下正好铺满一列设备像素的位置；
+    /// 映射不出有限行号的刻度<b>被跳过</b>（于是条数可以少于 <paramref name="ticks"/> 的长度）。不抛异常。
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// <b>为什么行号也算"能推进纯函数的算术"。</b>它是"刻度值 → 屏幕坐标 → 像素对齐"三件纯算术的复合，
+    /// 原本长在渲染路径里，只能用眼睛看；搬到这里之后，首尾两行是否压在绘图区边缘、
+    /// 每行是否真落在"整数 + 0.5"上（1px 笔画），都能在测试里断言。
+    /// </para>
+    /// <para>
+    /// <b>对齐要两步：先取整，再推半格。</b><see cref="PixelAlign.SnapStroke"/> 是半像素的<b>偏移</b>，
+    /// 不是吸附——它假定传进去的坐标已经落在像素原点（整数）上，只负责按笔画奇偶补那半格。
+    /// <see cref="ChartHitTest.YFor"/> 给出的却是任意小数行号（值域到像素的映射与窗口量级有关），
+    /// 直接递给它只会得到"小数 + 0.5"：看着像对齐，实际照样骑在两行设备像素之间。
+    /// 折线点则<b>绝不许</b>这么挪——网格线落在哪一行是呈现选择，挪半格不改变它代表什么；
+    /// 折线的坐标是数据本身，挪一点点就是对数值撒谎。
+    /// </para>
+    /// <para>
+    /// <b>这个"锐"只在 100% 缩放下成立</b>（<c>整数 + 0.5</c> 铺满一列设备像素的前提是 1 逻辑像素
+    /// 恰好等于 1 设备像素）。缩放比非整数时（125% / 150% / 175%…）真正的锐利中线落在设备坐标
+    /// <c>ℤ + 0.25</c> / <c>ℤ + 0.75</c> 这类位置上，任何"整数 + 0.5"的逻辑偏移都够不到：
+    /// 那时这里至多把骑跨减轻、不会更糟，但<b>不承诺锐利</b>。按当前缩放比做真正的对齐需要缩放比本身，
+    /// 那是调用方（页面 / 宿主）的事，见 <see cref="PixelAlign"/> 的备注。
+    /// </para>
+    /// <para>
+    /// <b>行号非有限就跳过</b>（坏掉的绘图区几何、或调用方直接喂了坏刻度）：让它进几何会把同一帧里
+    /// 所有坐标一起染成 <c>NaN</c>，与 <see cref="BuildPoints"/> 是同一条纪律。
+    /// </para>
+    /// <para>
+    /// <b>纯函数</b>：不读控件状态、不碰绘制栈，可在没有 UI 线程的测试里直接调用。
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<double> GridLineYs(IReadOnlyList<double> ticks, ValueRange window, Rect plotArea)
+    {
+        List<double> rows = new(ticks.Count);
+
+        foreach (double tick in ticks)
+        {
+            double y = ChartHitTest.YFor(tick, window, plotArea.Y, plotArea.Height);
+
+            if (!double.IsFinite(y))
+            {
+                continue;
+            }
+
+            // 两步，缺一不可：先把小数行号吸到最近的整数（100% 缩放下的设备像素网格），
+            // 再按笔画奇偶推半格。**SnapStroke 是"半像素的偏移"，不是"吸附到网格"**：
+            // 它只保证奇数宽 +0.5，前提是喂进去的坐标本来就在像素原点（整数）上。
+            // 直接把小数行号递进去得到的是"小数 + 0.5"，照样骑在两行设备像素之间——
+            // 看着像对齐了，其实一点没变锐。网格线是呈现装饰，挪半格不改变它代表什么；
+            // 折线点则绝不许这么挪（见 RenderChart）。
+            rows.Add(PixelAlign.SnapStroke(Math.Round(y), GridStrokeThickness));
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// 在每个行号处画一条横贯绘图区的网格线。
+    /// </summary>
+    /// <param name="context">绘制上下文。</param>
+    /// <param name="rows">行号（屏幕 y），由 <see cref="GridLineYs"/> 给出——已对齐、已筛过非有限值。</param>
+    /// <param name="plotArea">绘图矩形。</param>
+    private void DrawGridLines(DrawingContext context, IReadOnlyList<double> rows, Rect plotArea)
     {
         if (AxisBrush is not { } axisBrush)
         {
@@ -266,20 +390,9 @@ public sealed class LineChart : ChartSurface
 
         Pen pen = new(axisBrush, GridStrokeThickness);
 
-        foreach (double tick in ticks)
+        foreach (double row in rows)
         {
-            double y = ChartHitTest.YFor(tick, window, plotArea.Y, plotArea.Height);
-
-            // 窗口由刻度自己定出来，正常输入下 y 一定有限；非有限只会来自坏掉的绘图区几何，
-            // 那种点送进几何会把整帧染成 NaN，所以照 BuildPoints 的同一条纪律跳过。
-            if (!double.IsFinite(y))
-            {
-                continue;
-            }
-
-            double snappedY = PixelAlign.SnapStroke(y, GridStrokeThickness);
-
-            context.DrawLine(pen, new Point(plotArea.X, snappedY), new Point(plotArea.Right, snappedY));
+            context.DrawLine(pen, new Point(plotArea.X, row), new Point(plotArea.Right, row));
         }
     }
 
