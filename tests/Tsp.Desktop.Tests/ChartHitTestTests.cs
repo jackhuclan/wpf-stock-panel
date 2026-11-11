@@ -119,6 +119,22 @@ public sealed class ChartHitTestTests
     }
 
     [Fact]
+    public void YFor_passes_a_non_finite_value_through_so_the_caller_can_skip_it()
+    {
+        // 与上一条正好相反：值域没问题、倒是值本身没有值（指标预热期的 NaN）。
+        // 这种点不折成绘图区正中 —— 折了就会画出一条垂到中间的假线，
+        // 读者看到的是错误的价格走势，比缺点难查得多。
+        // 契约是「把非有限原样透传出去」，跳过该点是调用方的义务
+        //（Task 6 的 BuildPoints 就按 !double.IsFinite(y) 跳过）。
+        // 只断言「非有限」，不锁具体是 NaN 还是 ±Infinity：调用方要的就是这个判定。
+        var range = new ValueRange(0d, 100d);
+
+        Assert.False(double.IsFinite(ChartHitTest.YFor(double.NaN, range, 20d, 200d)));
+        Assert.False(double.IsFinite(ChartHitTest.YFor(double.PositiveInfinity, range, 20d, 200d)));
+        Assert.False(double.IsFinite(ChartHitTest.YFor(double.NegativeInfinity, range, 20d, 200d)));
+    }
+
+    [Fact]
     public void YFor_uses_the_centre_when_the_span_overflows()
     {
         // 上下界各自有限、跨度却溢出成 +Infinity —— ValueRange.From 不会把这种值域滤成兜底窗口，
