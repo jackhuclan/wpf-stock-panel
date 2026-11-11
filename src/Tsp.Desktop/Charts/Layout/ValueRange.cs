@@ -26,8 +26,10 @@ public readonly record struct ValueRange(double Min, double Max)
     /// </summary>
     /// <remarks>
     /// 调用方据此决定「把线画在正中 / 取中性色」，而不是拿一个零跨度去做除法。
-    /// 判定是<b>精确相等</b>、<b>不带 epsilon</b>：真正平坦的序列（停牌、单点、空集）必须被认出来，
+    /// 判定是<b>精确相等</b>、<b>不带 epsilon</b>：真正平坦的序列（停牌、单点、全等值）必须被认出来，
     /// 加一点容差就会把它们悄悄当成有跨度的序列，反而错。
+    /// <b>空集不算退化</b>——<see cref="From"/> 对空集返回的是兜底窗口 <c>(0, 1)</c>，其
+    /// <see cref="IsDegenerate"/> 为 <c>false</c>。
     /// </remarks>
     public bool IsDegenerate => Min == Max;
 

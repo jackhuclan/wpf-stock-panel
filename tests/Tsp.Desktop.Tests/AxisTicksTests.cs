@@ -87,6 +87,9 @@ public sealed class AxisTicksTests
     [InlineData(0d, 1d, 2)]
     [InlineData(0d, 1d, 1)]                                // targetCount 过小
     [InlineData(0d, 1d, int.MaxValue)]                     // targetCount 过大
+    [InlineData(100d, 100.00000000000001d, 7)]             // 窄到 1 个 ULP：整齐刻度只落得一条
+    [InlineData(2500d, 2500.0000000000005d, 5)]            // 窄到几个 ULP：相邻刻度塌成同一个值
+    [InlineData(1e16d, 10000000000000004d, 100)]           // 大量级窄区间：(first + i) * step 吃掉低位
     public void Nice_always_returns_a_non_empty_ordered_list_with_a_positive_step(
         double min, double max, int targetCount)
     {

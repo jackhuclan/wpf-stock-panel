@@ -10,7 +10,8 @@ namespace Tsp.Desktop.Charts.Layout;
 /// </para>
 /// <para><b>契约</b>（调用方可以依赖这四条）：</para>
 /// <list type="number">
-/// <item><description>返回列表<b>恒非空</b>（至少两条），严格递增，且元素全部有限；</description></item>
+/// <item><description>返回列表<b>恒非空，且至少两条</b>，严格递增，元素全部有限——
+/// 区间窄到只剩几个 ULP、整齐刻度会塌成同一个值时也一样，此时退回「正好两端」；</description></item>
 /// <item><description>相邻刻度之差恒为<b>正的有限值</b>；</description></item>
 /// <item><description>刻度区间<b>覆盖</b> <c>[min, max]</c> —— 首尾各自向外取整到整齐值，
 /// 因此 <c>ticks[0]</c> / <c>ticks[^1]</c> 可以直接当作可画窗口，数据点不会落到轴外；</description></item>
@@ -45,7 +46,7 @@ public static class AxisTicks
     /// <param name="min">区间下界；非有限值时与 <paramref name="max"/> 一起退回 <c>(0, 1)</c>。</param>
     /// <param name="max">区间上界；写反了会自动纠正。</param>
     /// <param name="targetCount">期望的刻度条数，会被收敛到 <c>[2, 1000]</c>；实际条数可以与之不同。</param>
-    /// <returns>非空、严格递增、全部有限的刻度列表，区间覆盖 <paramref name="min"/> 与 <paramref name="max"/>。</returns>
+    /// <returns>至少两条、严格递增、全部有限的刻度列表，区间覆盖 <paramref name="min"/> 与 <paramref name="max"/>。</returns>
     public static IReadOnlyList<double> Nice(double min, double max, int targetCount)
     {
         double low = min;
@@ -67,8 +68,8 @@ public static class AxisTicks
 
         if (low == high)
         {
-            // 退化区间（空集 / 单点 / 全等值）没有跨度，以该值为中心撑开一段，
-            // 让平坦的线仍然落在可画窗口的正中，而不是拿零跨度去做除法。
+            // 退化区间（单点、全等值，或调用方直接给了相等的上下界）没有跨度，
+            // 以该值为中心撑开一段，让平坦的线仍然落在可画窗口的正中，而不是拿零跨度去做除法。
             (low, high) = ExpandDegenerate(low);
         }
 
@@ -85,8 +86,7 @@ public static class AxisTicks
         {
             // 量级极端到浮点求不出整齐步长：例如 [1e307, 1.7e308] 会让整齐步长 2 × 10³⁰⁸ 溢出，
             // [-1e308, 1e308] 的区间本身就溢出成 +Infinity。
-            // 退回「正好两端」的窗口，硬契约（非空、递增、有限、覆盖）依然成立。
-            return new[] { low, high };
+            return FallbackWindow(low, high);
         }
 
         // 用「首项 + 序号 × 步长」而不是累加，避免浮点误差随刻度条数累积。
@@ -98,7 +98,49 @@ public static class AxisTicks
             ticks.Add((first + i) * step);
         }
 
+        if (!IsDrawable(ticks))
+        {
+            // 区间窄到只剩几个 ULP 时整齐刻度会塌掉，两种塌法都要拦：
+            //   1) low / step 与 high / step 四舍五入到同一个 double，Ceiling/Floor 意见一致，
+            //      于是 tickCount == 1，只落得一条刻度；
+            //   2) first 经 long 往返后低位被吃掉，(first + i) * step 让相邻刻度变成同一个值。
+            // 一条刻度 = 零高度窗口，会把调用方推向 (v - ticks[0]) / (ticks[^1] - ticks[0])
+            // = 0/0 = NaN —— 正是 ValueRange.IsDegenerate 要防的那个坑；
+            // 重复刻度则会把 N 条网格线与 N 个标签叠在同一个坐标上。
+            return FallbackWindow(low, high);
+        }
+
         return ticks;
+    }
+
+    /// <summary>
+    /// 兜底窗口：正好两端。硬契约（<b>至少两条</b>、全部有限、严格递增、覆盖区间）仍然成立，
+    /// 只是刻度不再是 1 / 2 / 5 × 10ⁿ 的整齐值。
+    /// </summary>
+    private static IReadOnlyList<double> FallbackWindow(double low, double high)
+    {
+        return new[] { low, high };
+    }
+
+    /// <summary>
+    /// 这串刻度是否真的画得出轴：<b>至少两条</b>、全部有限、严格递增。
+    /// </summary>
+    private static bool IsDrawable(IReadOnlyList<double> ticks)
+    {
+        if (ticks.Count < 2 || !double.IsFinite(ticks[0]))
+        {
+            return false;
+        }
+
+        for (int i = 1; i < ticks.Count; i++)
+        {
+            if (!double.IsFinite(ticks[i]) || ticks[i] <= ticks[i - 1])
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>

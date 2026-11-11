@@ -5,7 +5,7 @@ C# / Avalonia 桌面客户端，目标是复刻 [shy3130/tick-stock-panel](https
 
 - 复刻对象：[shy3130/tick-stock-panel](https://github.com/shy3130/tick-stock-panel)（TSP，MIT 许可；后端 Python + FastAPI + Polars + DuckDB，前端 React；本机上另有一份克隆在 `D:\repo\front\tick-stock-panel`）
 - 设计文档（唯一权威）：[`docs/superpowers/specs/2026-11-10-tsp-csharp-desktop-design.md`](docs/superpowers/specs/2026-11-10-tsp-csharp-desktop-design.md)
-- 当前版本：`0.2.4`（`Directory.Build.props` 的 `<Version>`，唯一版本源）
+- 当前版本：`0.2.5`（`Directory.Build.props` 的 `<Version>`，唯一版本源）
 - 目标运行环境：.NET 10 / 桌面端为 Avalonia（**不使用 WPF**）
 
 ---

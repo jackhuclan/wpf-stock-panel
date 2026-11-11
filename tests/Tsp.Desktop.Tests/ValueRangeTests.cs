@@ -10,12 +10,10 @@ namespace Tsp.Desktop.Tests;
 public sealed class ValueRangeTests
 {
     [Fact]
-    public void Empty_input_yields_a_degenerate_range_not_a_throw()
+    public void Empty_input_yields_a_usable_range_not_a_throw()
     {
-        // 任务书把这个用例写作「degenerate」，但任务的 Resolutions 第 1 条把空集
-        // 明确定为「一个可用窗口」(0, 1)，而不是 (NaN, NaN)。空集是「没有数据」，
-        // 与「数据平到零跨度」（IsDegenerate）不是一回事，
-        // 所以这里断言的是「有界、非 NaN、可画」，而不是 IsDegenerate。
+        // 空集是「没有数据」，不是「数据平到零跨度」：返回的是一个可用窗口 (0, 1)，
+        // 而不是 (NaN, NaN)，也不是退化区间。退化区间只留给「有数据但无跨度」的情形。
         ValueRange range = ValueRange.From(Array.Empty<double>());
 
         Assert.Equal(0d, range.Min);
