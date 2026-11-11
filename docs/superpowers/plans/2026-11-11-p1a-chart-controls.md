@@ -24,7 +24,7 @@
 - 命名：私有/内部字段（**含 `static`**）一律 `_camelCase`，**不用 `s_` 前缀**；类型/方法/属性 `PascalCase`。
 - 格式：Allman；文件作用域命名空间且与文件夹一致；`using` 在命名空间外、`System.*` 在前；4 空格缩进（C#），**2 空格**（axaml/csproj）。
 - **版本策略**：每次改动 → **补丁位 +1**；**子计划收口（本篇 P1-A 即属此档）→ 补丁位 +1**；**阶段性计划收口（P0、P1 整体做完）→ 次版本 +1、补丁位归零**。每个版本号要同步四处：`Directory.Build.props` 的 `<Version>`、`BaselineTest` 的版本断言、`README.md` 与 `AGENTS.md` 的「当前版本」；提交尾注必须等于新的 `<Version>`。**本阶段收口走补丁位，不要升次版本**；但 P1-C 收口同时是 P1 收口，那一次按**阶段**处理、升次版本。
-- 提交信息：中文 Conventional Commits。
+- 提交信息：中文 Conventional Commits。**每个任务的提交都升一次补丁位**（尾注等于本次新的 `<Version>`），四处引用同步——这条按所有者定的版本策略执行，不必逐任务再判断该升哪一位。
 - **推送**：所有者已授权本仓库"完成任务后自动推送"——构建 0 警告、测试全绿、工作树干净后直接 `git push origin main`，不再逐次请示。
 
 ## Review Focus
@@ -153,13 +153,16 @@ Run: `dotnet test tests/Tsp.Desktop.Tests` → 编译失败（类型未定义）
 - Test: `tests/Tsp.Desktop.Tests/ChartSurfaceContractTests.cs`
 
 **Interfaces:**
-- Consumes: `ValueRange`
+- Consumes: 无（基座不依赖值域计算）
 - Produces: `abstract class ChartSurface : Control`，提供：
-  - `StyledProperty<IBrush?> SurfaceBrushProperty` / `BorderBrushProperty` / `AxisBrushProperty` / `LabelBrushProperty`
+  - `StyledProperty<IBrush?> SurfaceBrushProperty` / `BorderBrushProperty` / `AxisBrushProperty` / `LabelBrushProperty`（四类通用）
+  - `StyledProperty<IBrush?> PrimaryBrushProperty` / `SecondaryBrushProperty`（主序列色与次要序列色——折线、柱、均线等**一切"数据序列"的颜色都取这两个之一**，避免每个图表各自发明一个画笔名）
   - `StyledProperty<double> PlotPaddingProperty`（默认 8）
   - `protected Rect PlotArea { get; }`——扣除内边距后的绘图矩形
   - `protected abstract void RenderChart(DrawingContext context, Rect plotArea);`
   - `sealed override void Render(DrawingContext context)`——画底/边框，然后调 `RenderChart`，**空数据时直接返回而不画轴**
+
+  派生控件可按需**追加**自己的画笔（`KLineChart` 加 `UpBrush`/`DownBrush`，`DonutChart` 加 `SliceBrushes`），但**通用画笔一律用上面的六个，不得另起名字**。
 
 - [ ] **Step 1: 写失败的测试**
 
@@ -365,14 +368,15 @@ Review Focus 第 3 项在此落实：
 
 ```xml
 <Style Selector="charts|LineChart">
-  <Setter Property="SurfaceBrush" Value="{DynamicResource BaseBrush}" />
-  <Setter Property="LineBrush"    Value="{DynamicResource AccentBrush}" />
-  <Setter Property="AxisBrush"    Value="{DynamicResource BorderBrush}" />
-  <Setter Property="LabelBrush"   Value="{DynamicResource FgMutedBrush}" />
+  <Setter Property="SurfaceBrush"   Value="{DynamicResource BaseBrush}" />
+  <Setter Property="PrimaryBrush"   Value="{DynamicResource AccentBrush}" />
+  <Setter Property="SecondaryBrush" Value="{DynamicResource FgMutedBrush}" />
+  <Setter Property="AxisBrush"      Value="{DynamicResource BorderBrush}" />
+  <Setter Property="LabelBrush"     Value="{DynamicResource FgMutedBrush}" />
 </Style>
 ```
 
-`KLineChart` 的涨跌画笔**必须**是 `BullBrush` / `BearBrush`（红涨绿跌）。**不得**在 C# 里给画笔赋任何字面色值。
+`KLineChart` 的涨跌画笔**必须**是 `BullBrush` / `BearBrush`（红涨绿跌），其 `PrimaryBrush` 留给均线。**不得**在 C# 里给画笔赋任何字面色值。
 
 - [ ] **Step 2: 确认 P0 的守卫测试仍然通过**
 
@@ -402,6 +406,8 @@ Review Focus 第 2 项（主题重绘）在这里被真正验证——视觉上�
 - [ ] **Step 1: 建页面与路由**
 
 按 P0 的既有做法：路由键加常量、**不进 `Routes.All`**（P0 已有测试钉住 `All` 恰好 19 项，不得破坏），并让它可被 `Routes.Find` 解析。页面**不进侧栏菜单**——它是开发工具，靠直接导航访问。
+
+**这会改到 `Routes.cs` 的两处**（常量 + `Find` 的特例分支）——spec §5.7 已记明这个双改点。**本任务照旧做两处改动即可**；收敛成 `Routes.Registered` 聚合是 **P1-B** 的活（它要落地真实设置页，那时才值得动 P0 已复审过的注册表）。
 
 - [ ] **Step 2: 实机验证六个控件**
 
