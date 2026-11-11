@@ -24,13 +24,11 @@ namespace Tsp.Desktop.Charts;
 /// 把 0 并进值域之后，窗口的两端之一就是零线本身，最短的柱也量得出长度。
 /// </para>
 /// <para>
-/// <b>像素对齐在这里有两套规则，别互相套用。</b>柱是<b>填充</b>的，填充要锐利就得让四条边落在
-/// 设备像素边界（100% 缩放下即整数）上——因此 <see cref="LayoutBar"/> 对横向两条边取
-/// <see cref="Math.Round(double)"/>、对纵向那条<b>远离零线</b>的边取向外取整
-/// （<see cref="Math.Floor(double)"/> / <see cref="Math.Ceiling(double)"/>）。
-/// 而 <see cref="PixelAlign.SnapStroke"/> 是<b>笔画中线</b>的半像素偏移，只用于画线
-/// （零线、网格线）：把它用在填充边上会把整根柱平移半个像素、并把那条边涂成 50% 的灰。
-/// 两者的差别与各自的由来见 <see cref="LayoutBar"/> 与 <see cref="RenderChart"/>。
+/// <b>柱怎么排、怎么对齐，规则都在 <see cref="ColumnLayout"/> 里</b>（K 线的实体与成交量柱用的是同一套）。
+/// 这里只强调那条最容易混的分界：<b>柱的边缘走"填充对齐"（落在整像素上），零线与网格线走"笔画对齐"
+/// （中线补半格）</b>——<see cref="PixelAlign.SnapStroke"/> 是后者的工具，用在填充边上会把整根柱
+/// 平移半个像素、并把那条边涂成 50% 的灰。两种口径各自的由来见 <see cref="ColumnLayout.SnapSpan"/>
+/// 与 <see cref="PixelAlign"/>。
 /// </para>
 /// <para>
 /// <b>非有限值 = "这一根没有值"</b>（指标预热期合法地产生 <c>NaN</c>），不进几何——
@@ -134,68 +132,21 @@ public sealed class BarChart : ChartSurface
         new(Math.Min(0d, dataRange.Min), Math.Max(0d, dataRange.Max));
 
     /// <summary>
-    /// 算出一根柱的矩形与零线的行号：<b>下标 → 横向槽位</b>、<b>值 → 纵向端点</b>，并做像素对齐。
+    /// 算出一根柱的矩形与零线的行号。
     /// </summary>
-    /// <param name="index">柱的下标（<c>0</c> 是序列里的第一根）。必须落在 <c>[0, count - 1]</c> 内。</param>
-    /// <param name="count">柱的根数。非正时返回一根零尺寸的柱，不抛异常（见备注）。</param>
+    /// <param name="index">柱的下标（<c>0</c> 是序列里的第一根）。</param>
+    /// <param name="count">柱的根数。非正时返回一根零尺寸的柱，不抛异常。</param>
     /// <param name="value">这根柱的数据值。可以是非有限值，含义是"这一根没有值"。</param>
-    /// <param name="range">纵轴的值域，<b>必须是 <see cref="ZeroAnchored"/> 处理过、含 0 的那一个</b>
-    /// （通常是 <see cref="ChartFrame.ComputeWindow(ValueRange, int)"/> 给出的窗口）。</param>
-    /// <param name="plotArea">绘图矩形（控件局部坐标）。宽度为 0 时所有柱退化成零宽，本函数照算不误。</param>
-    /// <param name="gapRatio">柱在槽里让出的空白比例；非有限值按 0 处理，其余夹到 <c>[0, 1]</c>。</param>
-    /// <returns>
-    /// 柱的矩形（横向已对齐到整像素、纵向已从零线向外取整）与零线的行号（已对齐到整像素）。
-    /// <b>两根柱的矩形永不重叠</b>，横向也恒在 <paramref name="plotArea"/> 之内（纵向见备注）。
-    /// <b><paramref name="value"/> 非有限时返回的矩形 <c>Y</c> 与 <c>Height</c> 都是非有限值</b>
-    /// （与 <see cref="ChartHitTest.YFor"/> 原样透传非有限的纪律一致）——调用方据此跳过，
-    /// 判据是 <c>!double.IsFinite(bar.Y)</c>。<b>任何输入都不抛异常。</b>
-    /// </returns>
+    /// <param name="range">纵轴的值域，<b>必须是 <see cref="ZeroAnchored"/> 处理过、含 0 的那一个</b>。</param>
+    /// <param name="plotArea">绘图矩形（控件局部坐标）。</param>
+    /// <param name="gapRatio">柱在槽里让出的空白比例。</param>
+    /// <returns>柱的矩形与零线的行号；非有限的 <paramref name="value"/> 给出非有限的纵向几何（调用方据此跳过）。</returns>
     /// <remarks>
-    /// <para>
-    /// <b>零线的位置。</b>取 <see cref="ChartHitTest.YFor"/> 给 <c>0</c> 的行号，再夹进
-    /// <paramref name="plotArea"/> 的上下边、取整。夹紧是给<b>兜底窗口</b>留的：正常路径上
-    /// <paramref name="range"/> 含 0（<see cref="ZeroAnchored"/> 保证），零线本就在框里；
-    /// 量级极端到 <see cref="AxisTicks.Nice"/> 退回固定窗口 <c>(0, 1)</c> 时它仍可能落在框外，
-    /// 那时夹到<b>靠近 0 的那条边</b>，柱照样从那条边量起，而不是整块图什么都画不出来。
-    /// </para>
-    /// <para>
-    /// <b>横向：两条边各自独立地取整到最近的整数像素</b>（不是"先取整左边界再加宽度"）。
-    /// 这样相邻两根柱相邻的那条边得到的是<b>同一个</b> <see cref="Math.Round(double)"/> 结果，
-    /// 于是"不重叠"是结构上的必然，而不是靠留白算得巧；横向不越框也来自同一件事
-    /// （槽的左右端点本来就落在框边上，取整不会把它推出去）。
-    /// 代价写在下面：槽宽不足 1 像素时，某些柱会退化成零宽而<b>看不见</b>——
-    /// 宁可少画一根，也不画一根压住邻居的柱。
-    /// </para>
-    /// <para>
-    /// <b>纵向：远离零线的那条边<b>向外</b>取整</b>（值大于 0 时向上取 <see cref="Math.Floor(double)"/>，
-    /// 小于 0 时向下取 <see cref="Math.Ceiling(double)"/>）。向外而不是就近，一举两得：
-    /// 柱高恒为整数像素（填充锐利），且<b>任何非零的柱至少占 1 像素</b>——
-    /// 一根量级只有半个像素的柱若按就近取整就会塌成零高、凭空消失，而"柱短"与"没有这根柱"
-    /// 在读图上是两件完全不同的事。<b>值为 0 时高恒为 0</b>（零线就在这里，柱长为零是实话），
-    /// 这条不受上面那条最小高度规则影响。
-    /// </para>
-    /// <para>
-    /// <b>纵向可能越出绘图区不到 1 像素</b>：<paramref name="plotArea"/> 的上下边不是整数时，
-    /// 向外取整会把它顶出去最多一个像素。这是"填充锐利"与"严格不越框"之间的取舍，
-    /// 取前者——越出去的那点落在基座的内边距里，看不见，而糊掉的柱边是看得见的。
-    /// 横向没有这个问题（那里用的是取整到最近）。
-    /// </para>
-    /// <para>
-    /// <b>退化值域（全等值、单点）</b>时 <see cref="ChartHitTest.YFor"/> 把一切值映到绘图区垂直正中，
-    /// 零线也在那里，于是每根柱都是零高——零跨度下所有柱一样长这件事本就无从表达。
-    /// 正常路径到不了这里：窗口由刻度定出，而 <see cref="AxisTicks.Nice"/> 保证窗口非退化。
-    /// </para>
-    /// <para>
-    /// <b><paramref name="count"/> 非正时</b>返回一根零尺寸的柱（位置取绘图区左边、零线上），
-    /// 不抛异常也不做除法——<c>绘图区宽度 / 0</c> 会得到 <c>Infinity</c>，再往下就是一根无限宽的柱。
-    /// 调用方本来就该先判空（"有没有数据"是 <see cref="HasData"/> 的事），
-    /// 这里只是不给一个走错路的调用方留下毒值。<b><paramref name="index"/> 不校验</b>：
-    /// 它来自 <c>for (i = 0; i &lt; count; i++)</c>，越界的下标会画到框外去，那是调用方的问题。
-    /// </para>
-    /// <para>
-    /// <b>纯函数</b>：不读控件状态、不碰绘制栈，因此在没有 UI 线程的测试里可以直接调用。
-    /// 本函数<b>不做</b>"要不要画"的政策决定（零尺寸绘图区照算，收手是 <see cref="RenderChart"/> 的事）。
-    /// </para>
+    /// <b>本方法是 <see cref="ColumnLayout.Anchored"/> 的委托，规则全在那里</b>
+    /// （横向两条边各自取整到最近、纵向从零线向外取整、间距夹到 <c>[0, 1]</c>、
+    /// 非有限值原样透传、<c>count</c> 非正时不给毒值）。留在本控件上的是<b>名字</b>：
+    /// 它是本控件的公开契约（与 Task 7 的计划一致），而实现与 K 线共用一份——
+    /// 让 K 线去调 <c>BarChart.LayoutBar</c> 才是要避开的那种"控件引用控件"。
     /// </remarks>
     public static (Rect Bar, double Baseline) LayoutBar(
         int index,
@@ -203,57 +154,8 @@ public sealed class BarChart : ChartSurface
         double value,
         ValueRange range,
         Rect plotArea,
-        double gapRatio)
-    {
-        double baseline = BaselineY(range, plotArea);
-
-        if (count <= 0 || !double.IsFinite(plotArea.Width) || plotArea.Width <= 0d)
-        {
-            return (new Rect(plotArea.X, baseline, 0d, 0d), baseline);
-        }
-
-        // 间距：非有限按 0 处理（与 ChartSurface.PlotPadding 同一口径），其余夹到 [0, 1]。
-        // 不夹的话负间距会让柱宽超过槽宽、相邻柱直接叠在一起；超过 1 的间距则给出负宽度的矩形。
-        double gap = double.IsFinite(gapRatio) ? Math.Clamp(gapRatio, 0d, 1d) : 0d;
-
-        double slot = plotArea.Width / count;
-        double barWidth = slot * (1d - gap);
-        double slotLeft = plotArea.X + (index * slot);
-        double leftEdge = slotLeft + ((slot - barWidth) / 2d);
-        double rightEdge = leftEdge + barWidth;
-
-        double left = Math.Round(leftEdge);
-        double right = Math.Round(rightEdge);
-
-        double outer = ChartHitTest.YFor(value, range, plotArea.Y, plotArea.Height);
-        double top;
-        double bottom;
-
-        if (!double.IsFinite(outer))
-        {
-            // "这一根没有值"：原样透传非有限，让调用方用 !IsFinite 一跳了之。
-            // 折成正中或零高都会画出读者无从分辨的假柱。
-            top = outer;
-            bottom = outer;
-        }
-        else if (outer < baseline)
-        {
-            top = Math.Floor(outer);
-            bottom = baseline;
-        }
-        else if (outer > baseline)
-        {
-            top = baseline;
-            bottom = Math.Ceiling(outer);
-        }
-        else
-        {
-            top = baseline;
-            bottom = baseline;
-        }
-
-        return (new Rect(left, top, right - left, bottom - top), baseline);
-    }
+        double gapRatio) =>
+        ColumnLayout.Anchored(index, count, value, range, plotArea, gapRatio);
 
     /// <summary>
     /// 画框里的东西：网格线 → 零线 → 柱。
@@ -302,7 +204,7 @@ public sealed class BarChart : ChartSurface
         DrawHorizontalLines(context, ChartFrame.GridLineYs(ticks, window, plotArea), plotArea);
 
         int count = values.Count;
-        double baseline = BaselineY(window, plotArea);
+        double baseline = ColumnLayout.BaselineY(window, plotArea);
         double gapRatio = GapRatio;
 
         if (AxisBrush is { } axisBrush)
@@ -330,39 +232,6 @@ public sealed class BarChart : ChartSurface
 
             context.FillRectangle(barBrush, bar);
         }
-    }
-
-    /// <summary>
-    /// 零线的行号：值 <c>0</c> 在 <paramref name="range"/> 里的位置，夹进绘图区、对齐到整像素。
-    /// </summary>
-    /// <param name="range">纵轴值域，正常路径上含 0（<see cref="ZeroAnchored"/> 保证）。</param>
-    /// <param name="plotArea">绘图矩形。</param>
-    /// <returns>零线所在的行号，<b>整数</b>（柱的两端要对齐到它，见 <see cref="LayoutBar"/>）。</returns>
-    /// <remarks>
-    /// <para>
-    /// <b>夹紧的两端就是"靠近 0 的那条边"</b>：<see cref="ChartHitTest.YFor"/> 把值域上界映到顶边、
-    /// 下界映到底边，所以 0 落在上界之外时夹到顶边、落在下界之外时夹到底边，正是"取靠近 0 的边界"。
-    /// </para>
-    /// <para>
-    /// <b>取整到整数</b>，与柱的纵向端点同一格网格：零线若不是整数，柱贴零线的那一端就会骑在两个
-    /// 设备像素之间、糊出一条边——而柱与零线相接的那条边是每根柱都要读的地方。
-    /// 画零线的<b>笔画</b>再在 <see cref="RenderChart"/> 里补半格（<see cref="PixelAlign.SnapStroke"/>），
-    /// 填充对齐与笔画对齐的区别见 <see cref="LayoutBar"/>。
-    /// </para>
-    /// <para>
-    /// 上下界用 <see cref="Math.Min(double, double)"/> / <see cref="Math.Max(double, double)"/> 排序而不是
-    /// 直接 <c>Math.Clamp(值, plotArea.Top, plotArea.Bottom)</c>：后者在 <c>min &gt; max</c> 时<b>抛异常</b>，
-    /// 而高为负的矩形（坏掉的绘图区几何）就会走到那一步。本方法跑在 <c>Render()</c> 路径上，
-    /// 那里一个异常就是一整窗白屏。
-    /// </para>
-    /// </remarks>
-    private static double BaselineY(ValueRange range, Rect plotArea)
-    {
-        double low = Math.Min(plotArea.Top, plotArea.Bottom);
-        double high = Math.Max(plotArea.Top, plotArea.Bottom);
-        double y = ChartHitTest.YFor(0d, range, plotArea.Y, plotArea.Height);
-
-        return Math.Round(Math.Clamp(y, low, high));
     }
 
     /// <summary>
