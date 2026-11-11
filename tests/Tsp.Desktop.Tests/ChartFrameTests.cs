@@ -79,6 +79,28 @@ public sealed class ChartFrameTests
     }
 
     [Fact]
+    public void ComputeWindow_from_a_value_range_agrees_with_the_one_from_a_series()
+    {
+        // 两个重载是同一条链，值域重载只是少了一步 ValueRange.From。柱状图走的是它那条路：
+        // 窗口必须先并入 0，而那一刻手上只有一条 ValueRange，没有"数据序列"可传
+        // （政策在 BarChart.ZeroAnchored，不在"框"的算术里）。这里钉住两者不会分叉。
+        double[] values = [3d, 11d, 7d, 5d, 9d];
+
+        (ValueRange fromSeries, IReadOnlyList<double> seriesTicks) = ChartFrame.ComputeWindow(values, 4);
+        (ValueRange fromRange, IReadOnlyList<double> rangeTicks) = ChartFrame.ComputeWindow(ValueRange.From(values), 4);
+
+        Assert.Equal(fromSeries, fromRange);
+        Assert.Equal(seriesTicks, rangeTicks);
+
+        // 并且它**照单全收**：给一条不含 0 的值域，它不会自作主张把 0 并进来
+        // （那会多出一条与数据无关的刻度，柱状图要的是相反的东西，见 BarChart.ZeroAnchored）。
+        (ValueRange allPositive, IReadOnlyList<double> positiveTicks) = ChartFrame.ComputeWindow(new ValueRange(1d, 3d), 4);
+
+        Assert.Equal(new ValueRange(1d, 3d), allPositive);
+        Assert.All(positiveTicks, tick => Assert.True(tick >= 1d, $"刻度 {tick} 落到了值域之外。"));
+    }
+
+    [Fact]
     public void ComputeWindow_on_values_too_large_to_stretch_falls_back_to_the_fixed_window()
     {
         // 唯一一个"可画但不盖住数据"的角落，来自 AxisTicks.Nice 自己的兜底：

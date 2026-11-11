@@ -76,8 +76,29 @@ public static class ChartFrame
     /// </para>
     /// </remarks>
     public static (ValueRange Window, IReadOnlyList<double> Ticks) ComputeWindow(IReadOnlyList<double> values, int targetCount)
+        => ComputeWindow(ValueRange.From(values), targetCount);
+
+    /// <summary>
+    /// 由<b>值域</b>（而不是数据序列）定出可画窗口与刻度，其余契约与上面那个重载完全相同。
+    /// </summary>
+    /// <param name="dataRange">数据值域，通常来自 <see cref="ValueRange.From"/>；也可以是**调整过**的值域。</param>
+    /// <param name="targetCount">期望的刻度条数，会被 <see cref="AxisTicks.Nice"/> 收敛。</param>
+    /// <returns>窗口是首尾刻度本身，契约同 <see cref="ComputeWindow(IReadOnlyList{double}, int)"/>。</returns>
+    /// <remarks>
+    /// <para>
+    /// <b>为什么需要它。</b>柱状图的窗口不能直接用数据的值域：柱长只有相对一条<b>看得见的零线</b>
+    /// 才读得出来，所以它必须先把 <c>0</c> 并进值域（<c>BarChart.ZeroAnchored</c>），
+    /// 而那一刻手上只有一条 <see cref="ValueRange"/>，没有"数据序列"可传。
+    /// 用这个重载而不是在这里复制「窗口 = 首尾刻度」那句，是因为那句<b>就是</b>这条不变量的全部内容
+    /// ——写两遍迟早会漂移，而漂移的表现是网格线与数据各说各话、且没有任何报错。
+    /// </para>
+    /// <para>
+    /// <b>本重载不做任何"要不要含 0"的政策决定</b>：给什么值域就按什么值域定窗口。
+    /// 那个政策属于柱状图（<c>BarChart.ZeroAnchored</c>），不属于"框"的算术。
+    /// </para>
+    /// </remarks>
+    public static (ValueRange Window, IReadOnlyList<double> Ticks) ComputeWindow(ValueRange dataRange, int targetCount)
     {
-        ValueRange dataRange = ValueRange.From(values);
         IReadOnlyList<double> ticks = AxisTicks.Nice(dataRange.Min, dataRange.Max, targetCount);
 
         return (new ValueRange(ticks[0], ticks[^1]), ticks);
