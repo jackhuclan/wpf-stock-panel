@@ -7,6 +7,6 @@ public sealed class BaselineTest
     {
         var version = typeof(BaselineTest).Assembly.GetName().Version;
 
-        Assert.Equal(new Version(0, 1, 1, 0), version);
+        Assert.Equal(new Version(0, 2, 0, 0), version);
     }
 }
