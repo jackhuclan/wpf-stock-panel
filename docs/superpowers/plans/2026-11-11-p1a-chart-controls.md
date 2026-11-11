@@ -14,7 +14,8 @@
 
 ## Global Constraints
 
-- TFM `net10.0`；Avalonia `12.1.6`；**CPM 集中包管理，csproj 内禁止写 `Version`**。**本阶段不新增任何包**——图表自绘，`ScottPlot.Avalonia` 仍只登记在 CPM 作后备、不启用。
+- TFM `net10.0`；Avalonia `12.1.6`；**CPM 集中包管理，csproj 内禁止写 `Version`**。图表自绘，`ScottPlot.Avalonia` 仍只登记在 CPM 作后备、不启用。
+- **本阶段新增两个包，且仅测试用**：`Avalonia.Headless` 与 `Avalonia.Skia`（均 12.1.6），只进 `tests/Tsp.Desktop.Tests`。**这是对 P0 的 Ruling 8 的更正**：那条排除的是 `Avalonia.Headless.XUnit`（它依赖 `xunit.v3.extensibility.core`，会劈开测试栈），却错误地泛化成了"本仓库不做无头测试"。**已核实**：纯 `Avalonia.Headless` 12.1.6 只依赖 `Avalonia` / `Avalonia.Fonts.Inter` / `Avalonia.HarfBuzz`，**不碰 xunit**。代价是两个测试依赖；换来的是**"切主题重绘"从"只能人眼看一次"变成"每次 CI 都能像素比对"**——本阶段存在的理由就是这件事，不该把它留成永久手工。
 - 依赖方向（强制）：`Tsp.Desktop → Tsp.Desktop.ViewModels → Tsp.Contracts`。图表控件在 `Tsp.Desktop`；**不得**为了测试方便把 Avalonia 引用加进 `Tsp.Desktop.ViewModels`。
 - 构建基线 **0 警告 0 错误**；每步都跑 `dotnet build Tsp.slnx`。
 - **颜色一律走 `Themes/Tokens.axaml` 的令牌，且必须用 `{DynamicResource}`。** P0 已有一条静态守卫测试（`ThemeTokenReferenceTests`）扫描 `src/Tsp.Desktop/**/*.axaml` 强制此事——**它必须始终为绿**，它是本阶段最大的失效防线。
@@ -25,6 +26,7 @@
 - 格式：Allman；文件作用域命名空间且与文件夹一致；`using` 在命名空间外、`System.*` 在前；4 空格缩进（C#），**2 空格**（axaml/csproj）。
 - **版本策略**：每次改动 → **补丁位 +1**；**子计划收口（本篇 P1-A 即属此档）→ 补丁位 +1**；**阶段性计划收口（P0、P1 整体做完）→ 次版本 +1、补丁位归零**。每个版本号要同步四处：`Directory.Build.props` 的 `<Version>`、`BaselineTest` 的版本断言、`README.md` 与 `AGENTS.md` 的「当前版本」；提交尾注必须等于新的 `<Version>`。**本阶段收口走补丁位，不要升次版本**；但 P1-C 收口同时是 P1 收口，那一次按**阶段**处理、升次版本。
 - 提交信息：中文 Conventional Commits。**每个任务的提交都升一次补丁位**（尾注等于本次新的 `<Version>`），四处引用同步——这条按所有者定的版本策略执行，不必逐任务再判断该升哪一位。
+- **给 Task 6–10 的一条前置注意**：`ChartSurface` 没有覆写 `MeasureOverride`/`ArrangeOverride`，所以 `PlotPadding` 只经 `PlotArea` 影响**绘制几何**，它在 `AffectsRender` 里是对的。**但派生控件若开始在 `MeasureOverride` 里用 `PlotPadding`，就必须同时注册 `AffectsMeasure`**，否则改内边距会以**过期的测量尺寸**重绘。
 - **推送**：所有者已授权本仓库"完成任务后自动推送"——构建 0 警告、测试全绿、工作树干净后直接 `git push origin main`，不再逐次请示。
 
 ## Review Focus
@@ -400,41 +402,60 @@ Expected: 通过，且它扫描到的 `{DynamicResource}` 计数**因本任务�
 
 ---
 
-### Task 12: 开发用图表页与实机验证
+### Task 12: 无头渲染验证 + 开发用图表页
 
-Review Focus 第 2 项（主题重绘）在这里被真正验证——视觉上的，不是断言上的。
+**本任务是本阶段验收的落点**，分两层：先建**无头渲染测试宿主**把"切主题重绘"变成可自动验的像素比对，再用开发页在真机上确认六图观感。原计划只有后者（纯手工），那意味着本阶段的核心验收标准**永不受 CI 保护**——这不是这个项目该接受的状态。
 
 **Files:**
+- Modify: `tests/Tsp.Desktop.Tests/Tsp.Desktop.Tests.csproj`（加 `Avalonia.Headless` + `Avalonia.Skia`，**只写 `Include`**）
+- Create: `tests/Tsp.Desktop.Tests/Charts/HeadlessRenderHarness.cs`（会话/宿主搭建，供各控件渲染测试复用）
+- Create: `tests/Tsp.Desktop.Tests/Charts/ChartRenderTests.cs`
 - Create: `src/Tsp.Desktop/Views/DevChartsPage.axaml`
 - Create: `src/Tsp.Desktop/Views/DevChartsPage.axaml.cs`
 - Modify: `src/Tsp.Desktop/Themes/Controls.axaml`（若需要页级样式）
 - Modify: `src/Tsp.Desktop.ViewModels/Navigation/Routes.cs`（加 `Routes.DevCharts = "/dev/charts"`，**不入 `Routes.All`**）
 
 **Interfaces:**
-- Consumes: 全部六个控件
-- Produces: 一个六格布局的开发页，每格一个控件喂固定夹具数据
+- Consumes: 全部六个控件、`ChartSurface` 的六个通用画笔、`Themes/Tokens.axaml` 的两套主题
+- Produces: 一个可复用的无头渲染宿主 + 一组像素级断言 + 一个六格开发页
 
-- [ ] **Step 1: 建页面与路由**
+- [ ] **Step 1: 接无头宿主**
 
-按 P0 的既有做法：路由键加常量、**不进 `Routes.All`**（P0 已有测试钉住 `All` 恰好 19 项，不得破坏），并让它可被 `Routes.Find` 解析。页面**不进侧栏菜单**——它是开发工具，靠直接导航访问。
+把 `Avalonia.Headless` 与 `Avalonia.Skia` 加进测试工程。目标形态：能在测试里把一个控件 `Arrange` 到指定矩形、渲染到 `RenderTargetBitmap`、再读回像素。**不要**引入 `Avalonia.Headless.XUnit`（它依赖 `xunit.v3`，会劈开测试栈）。
 
-**这会改到 `Routes.cs` 的两处**（常量 + `Find` 的特例分支）——spec §5.7 已记明这个双改点。**本任务照旧做两处改动即可**；收敛成 `Routes.Registered` 聚合是 **P1-B** 的活（它要落地真实设置页，那时才值得动 P0 已复审过的注册表）。
+- [ ] **Step 2: 写"画笔变了必须重绘"的像素断言（本阶段最关键的一条）**
 
-- [ ] **Step 2: 实机验证六个控件**
+这是整个 P1-A 的验收核心，也是静态守卫**只能保证"注册了"、不能保证"生效"**的那一半：
+
+```csharp
+// 渲染一次 → 改一个画笔 → 再渲染一次 → 两次像素必须不同
+// 且把同一控件的 DrawOperation 计数或像素差做成断言，而不是靠人看
+[Fact] public void Changing_a_brush_changes_the_rendered_pixels()
+[Fact] public void A_null_brush_renders_without_throwing()
+[Fact] public void HasData_false_renders_nothing()
+```
+
+**证其有牙**：把 `AffectsRender` 里某个画笔删掉（或用错泛型参数），`Changing_a_brush_…` 必须变红——否则这条测试是空转的。
+
+- [ ] **Step 3: 逐控件渲染冒烟**
+
+六个控件各喂一组夹具数据，在无头宿主里渲染成功且**产出的像素非全空**；K 线**涨红跌绿**（逐元素数像素，涨只应出现 `BullBrush`、跌只应出现 `BearBrush`）。空列表输入六个控件都**不抛异常**（Review Focus 1）。
+
+- [ ] **Step 4: 建开发页与路由**
+
+按 P0 的既有做法：路由键加常量、**不进 `Routes.All`**（P0 已有测试钉住 `All` 恰好 19 项），并让它可被 `Routes.Find` 解析；页面**不进侧栏菜单**。这会改到 `Routes.cs` 的两处——spec §5.7 已记明这个双改点，收敛成 `Routes.Registered` 是 P1-B 的活。
+
+- [ ] **Step 5: 实机确认六图**
 
 Run: `dotnet run --project src/Tsp.Desktop`
 
-逐项确认并截图：六个控件都渲染出有意义的图形；K 线**涨红跌绿**；数字用等宽字体。
+六个控件渲染出有意义的图形；数字等宽；**图表不在父容器原点也能正确落位**（Task 4 的 Critical 是关于这个的，实机要盖住它：把某一格放进有偏移的网格/有内边距的面板里看）。
 
-- [ ] **Step 3: 实机验证主题重绘（本任务的核心）**
+- [ ] **Step 6: 实机切换主题，逐图确认**
 
-在同一个页面里切换明暗主题，**逐个控件确认颜色实时跟随**——不得有任何一个残留旧主题的颜色。用像素计数佐证（P0 的验证脚本可复用：切换后旧主题专属令牌的像素计数应为 0）。
+切明暗主题，六个控件**逐个**确认颜色实时跟随；用像素计数佐证（切换后旧主题专属令牌的像素应为 0）。
 
-- [ ] **Step 4: 实机验证空数据不崩**
-
-给每个控件喂空列表（临时改夹具或用一个空序列），确认**不抛异常、不画出无意义的坐标轴**。验完改回。
-
-- [ ] **Step 5: 提交（**不推送**——推送由控制者在复审通过后执行）**
+- [ ] **Step 7: 提交（**不推送**——推送由控制者在复审通过后执行）**
 
 ---
 
