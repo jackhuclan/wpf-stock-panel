@@ -93,7 +93,7 @@ Run: `dotnet build Tsp.slnx` → 0 警告 0 错误；`dotnet test tests/Tsp.Desk
 必须钉住这几类输入（Review Focus 1、3）：
 
 ```csharp
-[Fact] public void Empty_input_yields_a_degenerate_range_not_a_throw()
+[Fact] public void Empty_input_yields_a_usable_range_not_a_throw()          // (0,1)，**不是**退化区间——空与"全等值"是两回事
 [Fact] public void Single_point_yields_a_degenerate_range()
 [Fact] public void All_equal_values_yield_a_degenerate_range()
 [Fact] public void From_ignores_NaN_and_Infinity()          // 不得让一个坏点毁掉整条线
@@ -101,6 +101,10 @@ Run: `dotnet build Tsp.slnx` → 0 警告 0 错误；`dotnet test tests/Tsp.Desk
 [Fact] public void Nice_on_a_degenerate_range_returns_a_usable_window() // 例：全 5.0 → 仍给出可画的上下界
 [Fact] public void Nice_handles_a_huge_magnitude_spread()    // 例：0 与 1e9 同存
 [Fact] public void Nice_handles_all_negative_values()
+// 近退化带：min/max 只差几个 ULP —— 这两条是上面"至少 2 刻度且严格递增"契约的落点
+[InlineData(100d, 100.00000000000001d, 7)]   // 曾产出 1 个刻度
+[InlineData(1e16d, 1e16d + 4d, 100)]         // 曾产出 65 个刻度但只有 3 个不同值
+public void Nice_stays_usable_in_the_near_degenerate_band(double min, double max, int targetCount)
 ```
 
 - [ ] **Step 2: 运行确认失败**
@@ -110,6 +114,11 @@ Run: `dotnet test tests/Tsp.Desktop.Tests` → 编译失败（类型未定义）
 - [ ] **Step 3: 实现**
 
 `ValueRange`：`From` 过滤非有限值；空集返回 `(0, 1)` 这类可用窗口而非 `(NaN, NaN)`；`IsDegenerate` 表示 `Min == Max`。`AxisTicks.Nice` 用经典的 nice-number 算法（步长取 1/2/5×10ⁿ），**保证不返回空列表、不产生 `NaN` 步长**。
+
+**契约必须再加两条，且都要有测试钉住**（它们是给 Task 3 的画布用的——画布会算 `(v - ticks[0]) / (ticks[^1] - ticks[0])`）：
+
+- **至少 2 个刻度，且严格递增。** 单刻度会让上式变成 `0/0 = NaN`，正是 `IsDegenerate` 存在要防的隐患；重复刻度会把 N 条网格线与 N 个标签画在同一坐标上。
+- **区间窄到只剩几个 ULP 时必须检测并回退。** 当 `low/step` 与 `high/step` 四舍五入到同一个 `double`（`Ceiling`/`Floor` 于是相等 → `tickCount == 1`），或 `(double)(first + i)` 回写时丢掉 `i` 的低位，就会产出 1 个、或 N 个重复值。反例（实测）：`Nice(100, 100.00000000000001, 7)` → 1 个刻度；`Nice(2500, 2500.0000000000005, 5)` → 5 个但只有 2 个不同值。**做法**：建完列表后若 `Count < 2` 或非严格递增，回退到 `[low, high]` 两刻度（复用溢出路径已有的那条回退）。
 
 - [ ] **Step 4: 运行确认通过**
 
