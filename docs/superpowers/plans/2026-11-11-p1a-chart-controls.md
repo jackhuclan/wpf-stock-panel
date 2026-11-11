@@ -27,6 +27,7 @@
 - **版本策略**：每次改动 → **补丁位 +1**；**子计划收口（本篇 P1-A 即属此档）→ 补丁位 +1**；**阶段性计划收口（P0、P1 整体做完）→ 次版本 +1、补丁位归零**。每个版本号要同步四处：`Directory.Build.props` 的 `<Version>`、`BaselineTest` 的版本断言、`README.md` 与 `AGENTS.md` 的「当前版本」；提交尾注必须等于新的 `<Version>`。**本阶段收口走补丁位，不要升次版本**；但 P1-C 收口同时是 P1 收口，那一次按**阶段**处理、升次版本。
 - 提交信息：中文 Conventional Commits。**每个任务的提交都升一次补丁位**（尾注等于本次新的 `<Version>`），四处引用同步——这条按所有者定的版本策略执行，不必逐任务再判断该升哪一位。
 - **给 Task 6–10 的一条前置注意**：`ChartSurface` 没有覆写 `MeasureOverride`/`ArrangeOverride`，所以 `PlotPadding` 只经 `PlotArea` 影响**绘制几何**，它在 `AffectsRender` 里是对的。**但派生控件若开始在 `MeasureOverride` 里用 `PlotPadding`，就必须同时注册 `AffectsMeasure`**，否则改内边距会以**过期的测量尺寸**重绘。
+- **`HasData` 的口径（Task 6 定，Task 7–10 抄同一个答案，不要各判一次）**：**"非空"不够**——必须**至少有一个有限值**。一个非空但全是 `NaN` 的序列若被当作有数据，会画出由 `ValueRange.From` 兜底 `(0,1)` 构造的网格，而那套刻度与序列毫无关系；基座自己的文档就点过这个失效（"没有数据却画出一套刻度，比什么都不画更容易被误读成'数据全是 0'"）。今天没有刻度文字所以不显假数字，**刻度文字一出现那根轴就是假的**。实现：`Values is { Count: > 0 } && Values.Any(double.IsFinite)`（每次渲染一次 O(n) 扫描，与每帧已在承担的刻度表分配相比可忽略）。**Task 7–10 各自的 `HasData` 都必须这样做。**
 - **推送**：所有者已授权本仓库"完成任务后自动推送"——构建 0 警告、测试全绿、工作树干净后直接 `git push origin main`，不再逐次请示。
 
 ## Review Focus
