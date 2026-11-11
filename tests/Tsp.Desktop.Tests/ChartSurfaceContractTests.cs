@@ -25,7 +25,7 @@ namespace Tsp.Desktop.Tests;
 /// 查询——<c>AffectsRender</c> 是 <c>Visual</c> 的 protected static，注册结果落在
 /// <c>LightweightSubject</c> 的私有订阅表里）。所以这里分两层处理，同一件事<b>没有任何一层</b>
 /// 靠反射 Avalonia 的私有字段去断言——那种替身换个版本就会静默失真，比不测更坏：
-/// <b>「登记有没有写」由 <c>ChartsBrushRenderGuardTests</c> 静态扫源码守卫</b>（它在 CI 里跑），
+/// <b>「登记有没有写」由 <c>ChartsSourceGuardTests</c> 静态扫源码守卫</b>（它在 CI 里跑），
 /// <b>「登记了到底会不会重绘」只能靠 Task 12 实机验证</b>（它是手动的，不会在 CI 里跑）。
 /// 本条用例只负责"这六个属性存在、是 <c>StyledProperty</c>、注册在 <c>ChartSurface</c> 名下"。
 /// </para>
@@ -122,7 +122,7 @@ public sealed class ChartSurfaceContractTests
         // 用 <Setter> + {DynamicResource} 赋值，主题一变 setter 就重算——这是"切主题图表跟着变色"
         // 的唯一一条路。DirectProperty 与普通 CLR 属性都不行。
         //
-        // AffectsRender 的**登记**由 ChartsBrushRenderGuardTests 静态扫源码守卫，
+        // AffectsRender 的**登记**由 ChartsSourceGuardTests 静态扫源码守卫，
         // 它的**运行期效果**由 Task 12 实机验证；两者都不在本条用例里（见类注释）。
         EnsureTypeInitialized();
 
@@ -188,6 +188,23 @@ public sealed class ChartSurfaceContractTests
     }
 
     [Fact]
+    public void PlotArea_is_independent_of_the_arrange_origin()
+    {
+        // 回归钉子（复审 Critical）：Visual.Bounds 的 X/Y 是**相对父控件**的（布局留给它的位置），
+        // 而 Render 拿到的 DrawingContext 用的是**控件自己的局部坐标系**（原点在控件左上角）。
+        // Avalonia 自己的 Border / Panel / Image 在 Render 里都只读 Bounds.Size，从不读 X/Y。
+        //
+        // 所以把 Bounds.X / Bounds.Y 夹进绘图区，会让**凡是不在父容器原点上的**图表
+        // （格子里的、第二行的、带内边距的面板里的——也就是真实布局里的每一个）整体偏移，
+        // 而恰好摆在原点上的图表看起来完全正常。原用例清一色 Arrange(0, 0, …)，
+        // 正好只覆盖"看起来正常"的那一种，因此这个 bug 能活过整个渲染体变异集。
+        ExposedSurface surface = new();
+        surface.Arrange(new Rect(11d, 22d, 100d, 50d));
+
+        Assert.Equal(new Rect(8d, 8d, 84d, 34d), surface.ExposedPlotArea);
+    }
+
+    [Fact]
     public void PlotArea_deducts_the_padding_on_every_side()
     {
         // 绘图区 = 控件矩形四边各让出 PlotPadding。这是 RenderChart 唯一的坐标系来源，
@@ -201,8 +218,9 @@ public sealed class ChartSurfaceContractTests
     [Fact]
     public void PlotArea_follows_a_changed_padding()
     {
+        // 同样刻意用一个非零的 Arrange 原点：绘图区只看尺寸，不看控件在父容器里的位置。
         ExposedSurface surface = new();
-        surface.Arrange(new Rect(0d, 0d, 100d, 50d));
+        surface.Arrange(new Rect(11d, 22d, 100d, 50d));
         surface.PlotPadding = 0d;
 
         Assert.Equal(new Rect(0d, 0d, 100d, 50d), surface.ExposedPlotArea);

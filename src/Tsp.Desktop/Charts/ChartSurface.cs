@@ -145,11 +145,18 @@ public abstract class ChartSurface : Control
     /// </summary>
     /// <remarks>
     /// <para>
+    /// <b>坐标系是控件自己的局部坐标</b>：原点在控件左上角，与 <see cref="Render"/> 拿到的
+    /// <see cref="DrawingContext"/> 一致。因此 <see cref="PlotArea"/> 的左上角恒为
+    /// <c>(PlotPadding, PlotPadding)</c>，与控件在父容器里的位置无关——<b>绝不能</b>把
+    /// <see cref="Visual.Bounds"/> 的 <c>X</c> / <c>Y</c> 加进来：那两个值是**相对父控件**的，
+    /// 加进来会让所有不在父容器原点上的图表整体偏移（详见 <see cref="Render"/> 的文档）。
+    /// </para>
+    /// <para>
     /// <b>尺寸恒非负</b>。控件还小（或还没排过版，<c>Bounds</c> 为 0）时，四边各让出内边距会算负宽高；
     /// 负尺寸的 <see cref="Rect"/> 会让几何运算给出反直觉的结果（比较、包含、求交都不再符合直觉），
     /// 所以一律夹到 0。零尺寸的含义是<b>"这块地方画不出来"</b>——渲染方据此直接收手即可。
-    /// 此时矩形的原点仍停在"控件左上 + 内边距"那一角，可能落在控件之外：零尺寸下位置没有意义，
-    /// 别拿它去做判断，要看就看尺寸。
+    /// 此时矩形的原点仍是 <c>(PlotPadding, PlotPadding)</c>：控件比两倍内边距还小时它会落在控件之外，
+    /// 但零尺寸下位置没有意义，别拿它去做判断，要看就看尺寸。
     /// </para>
     /// <para>
     /// <b><see cref="PlotPadding"/> 为负或非有限值时按 0 处理。</b>这不是"友善的容错"而是必须：
@@ -169,8 +176,8 @@ public abstract class ChartSurface : Control
             }
 
             return new Rect(
-                Bounds.X + padding,
-                Bounds.Y + padding,
+                padding,
+                padding,
                 Math.Max(0d, Bounds.Width - (2d * padding)),
                 Math.Max(0d, Bounds.Height - (2d * padding)));
         }
@@ -216,8 +223,18 @@ public abstract class ChartSurface : Control
     /// 边框的 <see cref="Pen"/> 每帧现建而不是缓存：画笔会随主题变，缓存的笔一旦没跟着失效，
     /// 就会变成"切主题后边框还留着旧颜色"这类查不出来的静默故障。现建把跟随做成了结构上的必然，
     /// 一帧一支笔的开销在图表的几何计算面前可以忽略。
-    /// 描边落在 <see cref="Visual.Bounds"/> 上（1px 会有一半压在控件外缘），
-    /// 像素对齐用的是 Task 5 的 <c>PixelAlign</c>，届时再统一收口。
+    /// </para>
+    /// <para>
+    /// <b>底与边框都用局部坐标 <c>(0, 0, 宽, 高)</c>（即 <c>new Rect(Bounds.Size)</c>）</b>——
+    /// <see cref="Visual.Bounds"/> 的 <c>X</c> / <c>Y</c> 是<b>相对父控件</b>的位置，而这里的
+    /// <see cref="DrawingContext"/> 已经被父级平移到本控件的原点，两者不在一个坐标系里。
+    /// 把 <c>Bounds</c> 整块递给绘制调用，会让所有不在父容器原点上的图表（格子里的、第二行的、
+    /// 带内边距的面板里的——真实布局里的每一个）整体偏移，而恰好摆在原点上的那些看起来完全正常。
+    /// Avalonia 自己的 <c>Border</c> / <c>Panel</c> / <c>Image</c> 在 <c>Render</c> 里也都只读
+    /// <c>Bounds.Size</c>。<b>本类只允许读 <c>Bounds</c> 的尺寸</b>（<c>Size</c> / <c>Width</c> /
+    /// <c>Height</c>），这条纪律由 <c>ChartsSourceGuardTests</c> 静态守卫。
+    /// 描边为 1px、居中于矩形边线（一半压在控件外缘），像素对齐用的是 Task 5 的 <c>PixelAlign</c>，
+    /// 届时再统一收口。
     /// </para>
     /// </remarks>
     public sealed override void Render(DrawingContext context)
@@ -229,14 +246,18 @@ public abstract class ChartSurface : Control
 
         Rect plotArea = PlotArea;
 
+        // 控件的整块矩形，**局部坐标**（原点在控件左上角），所以是 (0, 0, 宽, 高)。
+        // 只能用 Bounds.Size：Bounds 的 X/Y 是相对父控件的，见 Render 的文档。
+        Rect controlBox = new(Bounds.Size);
+
         if (SurfaceBrush is { } surfaceBrush)
         {
-            context.FillRectangle(surfaceBrush, Bounds);
+            context.FillRectangle(surfaceBrush, controlBox);
         }
 
         if (BorderBrush is { } borderBrush)
         {
-            context.DrawRectangle(new Pen(borderBrush), Bounds);
+            context.DrawRectangle(new Pen(borderBrush), controlBox);
         }
 
         RenderChart(context, plotArea);
