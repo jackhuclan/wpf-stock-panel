@@ -35,6 +35,17 @@ public sealed class ChartHitTestTests
         Assert.Equal(0, ChartHitTest.IndexAtX(640d, 40d, 600d, 1));
     }
 
+    [Theory]
+    [InlineData(200d, 2)]   // t × (count - 1) = 1.6 → 最近邻是 2（换成截断就会错给 1）
+    [InlineData(290d, 3)]   // t × (count - 1) 正好是 2.5 → 约定取靠后的下标
+    public void IndexAtX_rounds_to_the_nearest_and_breaks_ties_upward(double x, int expected)
+    {
+        // 端点用例只覆盖到 t × (count - 1) 恰好是整数的位置，那时截断与取整没有区别；
+        // 这两组探针才是「最近邻」与「中点取靠后」两条约定的真正钉子。
+        // 290 尤其关键：默认的银行家舍入会把 2.5 舍成 2，边界就随点数奇偶左右跳变。
+        Assert.Equal(expected, ChartHitTest.IndexAtX(x, 40d, 600d, 7));
+    }
+
     [Fact]
     public void IndexAtX_returns_null_outside_the_plot_area()
     {
@@ -48,7 +59,12 @@ public sealed class ChartHitTestTests
         Assert.Null(ChartHitTest.IndexAtX(left + 300d, left, 0d, count));                // 宽度为零
         Assert.Null(ChartHitTest.IndexAtX(left + 300d, left, -width, count));            // 宽度为负
         Assert.Null(ChartHitTest.IndexAtX(double.NaN, left, width, count));              // 指针坐标是 NaN
-        Assert.Null(ChartHitTest.IndexAtX(left + 300d, double.NaN, width, count));       // 绘图区原点坏了
+        Assert.Null(ChartHitTest.IndexAtX(left + 300d, double.NaN, width, count));       // 绘图区原点是 NaN
+
+        // 宽度是 NaN 或 +Infinity 时，区间判断拦不住：NaN <= 0 为 false、与任何数比较也为 false，
+        // 会一路算到 t = NaN、(int)NaN → 0，悄悄返回一个假下标 0。必须由显式的非有限判定拦下。
+        Assert.Null(ChartHitTest.IndexAtX(left + 300d, left, double.NaN, count));        // 宽度是 NaN
+        Assert.Null(ChartHitTest.IndexAtX(left + 300d, left, double.PositiveInfinity, count)); // 宽度是 +Infinity
     }
 
     [Fact]
@@ -102,12 +118,26 @@ public sealed class ChartHitTestTests
         Assert.Equal(120d, ChartHitTest.YFor(999d, flat, 20d, 200d));
     }
 
+    [Fact]
+    public void YFor_uses_the_centre_when_the_span_overflows()
+    {
+        // 上下界各自有限、跨度却溢出成 +Infinity —— ValueRange.From 不会把这种值域滤成兜底窗口，
+        // 而它照公式算是 (max - min) = +Infinity、t = Infinity / Infinity = NaN，一个点都画不出来。
+        // 所以「跨度非有限」与「退化」走同一条退路：返回的是一个确定的位置，而不是毒值。
+        var range = new ValueRange(-1e308d, 1e308d);
+
+        Assert.Equal(120d, ChartHitTest.YFor(1e308d, range, 20d, 200d));
+        Assert.Equal(120d, ChartHitTest.YFor(-1e308d, range, 20d, 200d));
+        Assert.Equal(120d, ChartHitTest.YFor(0d, range, 20d, 200d));
+    }
+
     [Theory]
     [InlineData(0d, 100d)]
     [InlineData(5d, 5d)]            // 退化：零跨度
     [InlineData(-5d, -5d)]          // 退化：零跨度，且值域整体在负数侧
     [InlineData(0d, 0d)]            // 退化：正好是 default(ValueRange)
     [InlineData(-1e9d, 1e9d)]       // 大量级、跨零
+    [InlineData(-1e308d, 1e308d)]   // 上下界各自有限，跨度却溢出成 +Infinity
     [InlineData(-100d, -1d)]
     public void YFor_is_always_finite_and_inside_the_plot(double min, double max)
     {
