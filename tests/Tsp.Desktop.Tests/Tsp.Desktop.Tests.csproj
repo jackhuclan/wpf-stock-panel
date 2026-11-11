@@ -21,4 +21,14 @@
     <ProjectReference Include="..\..\src\Tsp.Desktop\Tsp.Desktop.csproj" />
   </ItemGroup>
 
+  <!--
+    仓库根的定位（从输出目录向上找到 Tsp.slnx）与 Tsp.Desktop.ViewModels.Tests 共用同一份实现。
+    两个测试工程之间没有（也不该有）ProjectReference，所以这里用 <Compile Link> 把**同一个源文件**
+    编进本程序集，而不是抄一份上溯逻辑——RepoRoot.cs 自己的注释就要求"别各自抄一份，日后只改对一处"。
+    文件名保持 RepoRoot.cs（Link 的目标名），类型与命名空间也仍是它原来的样子。
+  -->
+  <ItemGroup>
+    <Compile Include="..\Tsp.Desktop.ViewModels.Tests\RepoRoot.cs" Link="RepoRoot.cs" />
+  </ItemGroup>
+
 </Project>
