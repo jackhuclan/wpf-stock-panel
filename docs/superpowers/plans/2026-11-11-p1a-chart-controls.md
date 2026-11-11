@@ -66,7 +66,7 @@
 
 Run: `dotnet build Tsp.slnx` → 0 警告 0 错误；`dotnet test tests/Tsp.Desktop.Tests` → 1 passed。
 
-- [ ] **Step 4: 提交并推送**
+- [ ] **Step 4: 提交（**不推送**——推送由控制者在复审通过后执行）**
 
 提交信息带版本尾注，尾注等于本次新的 `<Version>`。同时按版本策略同步四处并升一个号。
 
@@ -122,7 +122,7 @@ Run: `dotnet test tests/Tsp.Desktop.Tests` → 编译失败（类型未定义）
 
 - [ ] **Step 4: 运行确认通过**
 
-- [ ] **Step 5: 提交并推送**
+- [ ] **Step 5: 提交（**不推送**——推送由控制者在复审通过后执行）**
 
 ---
 
@@ -149,7 +149,7 @@ Run: `dotnet test tests/Tsp.Desktop.Tests` → 编译失败（类型未定义）
 - [ ] **Step 2: 运行确认失败**
 - [ ] **Step 3: 实现**
 - [ ] **Step 4: 运行确认通过**
-- [ ] **Step 5: 提交并推送**
+- [ ] **Step 5: 提交（**不推送**——推送由控制者在复审通过后执行）**
 
 ---
 
@@ -195,7 +195,7 @@ public void Every_brush_property_affects_render(string propertyName)
 四类画笔与内边距全部注册为 `StyledProperty`，并在静态构造函数里对它们调用 `AffectsRender<ChartSurface>(...)`。**画笔不得在 `RenderChart` 里被赋值**——赋值只发生在样式里（Task 11）。`Render` 在 `DataCount == 0` 时不画任何轴。
 
 - [ ] **Step 4: 运行确认通过**
-- [ ] **Step 5: 提交并推送**
+- [ ] **Step 5: 提交（**不推送**——推送由控制者在复审通过后执行）**
 
 ---
 
@@ -223,7 +223,7 @@ public void SnapStroke_aligns_odd_thickness_to_half_pixels(double input, double 
 - [ ] **Step 2: 运行确认失败**
 - [ ] **Step 3: 实现**
 - [ ] **Step 4: 运行确认通过**
-- [ ] **Step 5: 提交并推送**
+- [ ] **Step 5: 提交（**不推送**——推送由控制者在复审通过后执行）**
 
 ---
 
@@ -236,6 +236,8 @@ public void SnapStroke_aligns_odd_thickness_to_half_pixels(double input, double 
 **Interfaces:**
 - Consumes: `ChartSurface`、`ValueRange`、`AxisTicks`、`PixelAlign`
 - Produces: `sealed class LineChart : ChartSurface`，`StyledProperty<IReadOnlyList<double>?> ValuesProperty`、`bool FillAreaProperty`，以及**纯静态**的 `static IReadOnlyList<Point> BuildPoints(IReadOnlyList<double> values, ValueRange range, Rect plotArea)` 供直接测试
+
+  **调用方义务（Task 3 的契约，必须遵守）**：`ChartHitTest.YFor` 对**非有限值**返回非有限值，作为"这一点不可绘制"的信号——指标预热期会合法地产生 `NaN`。**`BuildPoints` 必须在建几何之前跳过这些点**，判据用 `!double.IsFinite(y)`，**不要**用"是否越出值域"来判（`Infinity` 是非有限的，但不是"比较上越界"）。若照中心点画，会画出一条往中间掉的**假线**——比跳过更糟。这条义务要写进 `BuildPoints` 的 XML 注释。
 
 - [ ] **Step 1: 写失败的测试**
 
@@ -250,7 +252,7 @@ public void SnapStroke_aligns_odd_thickness_to_half_pixels(double input, double 
 - [ ] **Step 2: 运行确认失败**
 - [ ] **Step 3: 实现**——`RenderChart` 用 `BuildPoints` + `StreamGeometry` 折线；`FillArea` 时以 `SurfaceBrush` 半透明填充。
 - [ ] **Step 4: 运行确认通过**
-- [ ] **Step 5: 提交并推送**
+- [ ] **Step 5: 提交（**不推送**——推送由控制者在复审通过后执行）**
 
 ---
 
@@ -279,7 +281,7 @@ Review Focus 第 3 项在此落实：
 - [ ] **Step 2: 运行确认失败**
 - [ ] **Step 3: 实现**——基线取 `ValueRange` 中 0 的位置（若 0 不在域内则取靠近 0 的边界）。
 - [ ] **Step 4: 运行确认通过**
-- [ ] **Step 5: 提交并推送**
+- [ ] **Step 5: 提交（**不推送**——推送由控制者在复审通过后执行）**
 
 ---
 
@@ -305,7 +307,7 @@ Review Focus 第 3 项在此落实：
 - [ ] **Step 2: 运行确认失败**
 - [ ] **Step 3: 实现**——总计为 0 时返回空；负值按 0 计并在报告中记明该口径。
 - [ ] **Step 4: 运行确认通过**
-- [ ] **Step 5: 提交并推送**
+- [ ] **Step 5: 提交（**不推送**——推送由控制者在复审通过后执行）**
 
 ---
 
@@ -331,7 +333,7 @@ Review Focus 第 3 项在此落实：
 - [ ] **Step 2: 运行确认失败**
 - [ ] **Step 3: 实现**
 - [ ] **Step 4: 运行确认通过**
-- [ ] **Step 5: 提交并推送**
+- [ ] **Step 5: 提交（**不推送**——推送由控制者在复审通过后执行）**
 
 ---
 
@@ -357,7 +359,7 @@ Review Focus 第 3 项在此落实：
 - [ ] **Step 2: 运行确认失败**
 - [ ] **Step 3: 实现**——行数由 `(count + columns - 1) / columns` 得出；最后一行的空位不画。
 - [ ] **Step 4: 运行确认通过**
-- [ ] **Step 5: 提交并推送**
+- [ ] **Step 5: 提交（**不推送**——推送由控制者在复审通过后执行）**
 
 ---
 
@@ -394,7 +396,7 @@ Expected: 通过，且它扫描到的 `{DynamicResource}` 计数**因本任务�
 
 若它变红，说明某处写了 `{StaticResource}` 或字面色值——**修代码，不要动守卫**。
 
-- [ ] **Step 3: 提交并推送**
+- [ ] **Step 3: 提交（**不推送**——推送由控制者在复审通过后执行）**
 
 ---
 
@@ -432,7 +434,7 @@ Run: `dotnet run --project src/Tsp.Desktop`
 
 给每个控件喂空列表（临时改夹具或用一个空序列），确认**不抛异常、不画出无意义的坐标轴**。验完改回。
 
-- [ ] **Step 5: 提交并推送**
+- [ ] **Step 5: 提交（**不推送**——推送由控制者在复审通过后执行）**
 
 ---
 
