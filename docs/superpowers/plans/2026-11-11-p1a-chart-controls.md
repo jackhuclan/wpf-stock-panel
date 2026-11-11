@@ -366,6 +366,73 @@ Review Focus 第 3 项在此落实：
 
 ---
 
+### Task 10b: `KLineChart`（K 线 + 成交量）——补计划缺口
+
+**这个任务在原任务表里漏了。** 本篇的 Goal 写的是"基座 + 6 个控件"，Task 11 要给 `KLineChart`
+配涨跌画笔，Task 12 要逐像素验"K 线涨红跌绿"，Task 13 要写六个控件各自的数据形状——但 Task 1–10
+只产出了基座加五个控件。缺口在这里补上。**编号取 `10b` 而不重排后续任务**：Task 11/12/13 的编号
+已被源码注释与文档多处引用（`ChartFrame`、`LineChart`、`ChartSurface` 里都有），重排会把那些引用
+全部弄错，而它们的错法是"悄悄指到另一个任务上"。
+
+**这也回答了 `LineChart` 文档留给 K 线的那道题。** 折线图的 `BuildPoints` 有一条刻意偏离通行做法的
+段语义（跨过缺口、不断开），文档里写明"K 线控件（唯一同样有'一段没值'的图表）开工前必须把这个决定
+重新过一遍"。**答案是不适用**：K 线的数据形状是 `IReadOnlyList<DailyBar>`（一个**列表**，不是定长序列），
+停牌那天根本不在表里，也就没有"缺口"可画——x 轴按下标排，语义是"第 n 根 K 线"而不是"第 n 个交易日"。
+折线图那条偏离的代价（中段空洞处画出一条假线）在 K 线上不存在，**因此 K 线不继承那条语义，也不需要
+改任何签名**；将来若真要在时间轴上留出停牌的空白，那是 x 轴口径的改动（按日期定位而不是按下标），
+要连 `BuildPoints` 那条一起重新过。
+
+**Files:**
+- Create: `src/Tsp.Desktop/Charts/KLineChart.cs`
+- Create: `src/Tsp.Desktop/Charts/Layout/ColumnLayout.cs`（把柱的排布规则从 `BarChart.LayoutBar` 里**搬出来**）
+- Modify: `src/Tsp.Desktop/Charts/BarChart.cs`（改为委托，签名与行为不变）
+- Test: `tests/Tsp.Desktop.Tests/KLineLayoutTests.cs`
+- Test: `tests/Tsp.Desktop.Tests/ColumnLayoutTests.cs`
+
+**Interfaces:**
+- Consumes: `ChartSurface`、`ChartFrame`、`ChartHitTest`、`PixelAlign`、`Tsp.Contracts.Market.DailyBar`（P0 已冻结）
+- Produces: `sealed class KLineChart : ChartSurface`，`StyledProperty<IReadOnlyList<DailyBar>?> BarsProperty`、
+  `StyledProperty<IBrush?> BullBrushProperty` / `BearBrushProperty`（派生控件追加的画笔，**必须**由样式指向
+  `BullBrush` / `BearBrush` 令牌；`PrimaryBrush` 留给均线，本阶段不画均线——指标在 P3），以及纯静态：
+  - `static bool IsBull(IReadOnlyList<DailyBar> bars, int index)`——**按昨收**判涨跌，见下
+  - `static (Rect Body, double WickX, double HighY, double LowY) LayoutCandle(int index, int count, DailyBar bar, ValueRange range, Rect priceArea, double gapRatio)`
+  - `ColumnLayout.Slot(...)` / `ColumnLayout.Anchored(...)` / `ColumnLayout.SnapSpan(...)`（三条共用的对齐规则）
+
+- [ ] **Step 1: 先搬 `ColumnLayout`（纯搬家，单独一次提交更好）**
+
+柱的横向槽位与"从基线向外取整"这套规则 K 线也要用（成交量柱），而 `ChartFrame` 的文档明说
+"让柱状图去调 `LineChart.ComputeWindow`（一个控件引用另一个控件）正是本阶段一路在避开的耦合"。
+所以把它搬到 `Charts/Layout/ColumnLayout.cs`，`BarChart.LayoutBar` 改为委托——**签名与行为一字不变**，
+`BarLayoutTests` 原样通过就是这次搬家没漂移的证明（与 Task 6 的 `ChartFrame` 搬家同一做法）。
+
+- [ ] **Step 2: 写失败的测试**
+
+```csharp
+[Fact] public void A_bullish_day_closes_above_the_previous_close()
+[Fact] public void A_limit_up_locked_day_is_bullish_even_though_open_equals_close()   // 一字板
+[Fact] public void The_first_bar_falls_back_to_close_versus_open()                   // 没有昨收可用
+[Fact] public void A_flat_day_takes_the_bear_colour_because_only_two_brushes_exist()
+[Fact] public void Candle_and_volume_share_the_same_horizontal_slot()
+[Fact] public void A_doji_body_is_one_pixel_tall_not_zero()                          // O == C 仍然看得见
+[Fact] public void Zero_volume_produces_a_zero_height_column_at_the_baseline()
+[Fact] public void The_price_window_covers_every_open_high_low_close()               // 含脏数据
+[Fact] public void LayoutCandle_on_an_empty_series_is_never_called()                 // 契约：调用方先判空
+[Fact] public void Has_data_requires_at_least_one_finite_value()                     // Task 7 定的统一口径
+```
+
+- [ ] **Step 3: 实现**
+
+价格面板与成交面板按比例切 `plotArea`（价格占大头、中间留一条窄缝）；价格窗口
+`ChartFrame.ComputeWindow(ValueRange.From(四价), 4)`，成交窗口 `ComputeWindow(ZeroAnchored(量), 3)`。
+K 线实体用 `Slot` + `SnapSpan`（向外取整：一字板与十字星都要看得见），影线用槽中心 + `PixelAlign`，
+成交量柱直接调 `ColumnLayout.Anchored`。
+
+- [ ] **Step 4: 运行确认通过**
+
+- [ ] **Step 5: 提交（**不推送**——推送由控制者在复审通过后执行）**
+
+---
+
 ### Task 11: 令牌接线与守卫确认
 
 **Files:**
